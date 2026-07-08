@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+db.sqlite3
+venv/
+.venv/
+node_modules/
+*.log
+.DS_Store
+
+# Google service account keys — never commit credentials, even if you
+# end up storing the key file under the project despite the setup
+# instructions saying to keep it outside the repo tree.
+*service-account*.json
+*serviceaccount*.json

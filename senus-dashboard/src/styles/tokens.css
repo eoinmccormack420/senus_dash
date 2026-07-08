@@ -1,0 +1,344 @@
+/* src/styles/tokens.css
+   Design tokens — hybrid direction: Assiduous's blue card-grid product
+   language for structure/color, serif display type reserved for hero
+   KPI numbers only (board-report gravitas on the figures that matter
+   most, product-native styling everywhere else).
+
+   Variable NAMES are unchanged from the original board-report tokens
+   on purpose — every section file references these vars, so changing
+   values here re-skins the whole dashboard without touching each
+   section's layout code. */
+
+:root {
+  /* Color — was ink/paper/forest/rust board-report palette,
+     now Assiduous blue product palette under the same variable names */
+  --color-ink: #14181F;          /* primary text — unchanged, still dark */
+  --color-paper: #F5F7FB;        /* soft blue-grey app background, not cream */
+  --color-paper-raised: #FFFFFF; /* card backgrounds */
+  --color-forest: #3457E8;       /* PRIMARY ACCENT — was deep forest green, now Assiduous blue */
+  --color-forest-soft: #EAEFFD;  /* accent tint for backgrounds/badges */
+  --color-rust: #E0483F;         /* negative/loss figures — brighter red, matches down-trend pills */
+  --color-rust-soft: #FCEAE9;
+  --color-grey: #8A93A6;         /* secondary text, slightly cooler than before */
+  --color-grey-line: #E7EBF3;    /* hairline borders, cooler tone */
+
+  /* Sparkline / chart secondary accent — used for the lighter blue
+     seen in Assiduous's stacked/dual-tone bars */
+  --color-accent-soft: #8FA8F5;
+
+  /* Type — Fraunces reserved for hero KPI numbers only now.
+     Section headers, labels, and body all move to the grotesk. */
+  --font-display: "Fraunces", "Source Serif 4", Georgia, serif;
+  --font-body: "Inter", "IBM Plex Sans", -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --text-hero: 2.75rem;   /* slightly smaller than the original 3.5rem —
+                              reads better inside a card than full-bleed */
+  --text-xl: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-base: 1rem;
+  --text-sm: 0.875rem;
+  --text-xs: 0.75rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2rem;
+  --space-6: 3rem;
+  --space-8: 4rem;
+
+  /* Radius — was near-zero (board-report register), now generously
+     rounded to match Assiduous's card system */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+
+  /* Card shadow — the defining visual signature of the reference
+     screenshot: soft, barely-there elevation, not a hard drop shadow */
+  --shadow-card: 0 1px 2px rgba(20, 24, 31, 0.04), 0 4px 16px rgba(20, 24, 31, 0.05);
+  --shadow-card-hover: 0 2px 4px rgba(20, 24, 31, 0.06), 0 8px 24px rgba(20, 24, 31, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  /* Reserve scrollbar space unconditionally so toggling between the
+     short "Loading…" state and the full page content never changes
+     the viewport width — without this, content height crossing the
+     scrollbar threshold makes the whole centered layout jump sideways. */
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-feature-settings: "tnum" 1;
+  margin: 0;
+}
+
+/* Buttons (period tabs, section nav pills) otherwise keep the browser's
+   default focus ring after a click, which reads as a stray black
+   border since it doesn't follow the pill border-radius. Suppress it
+   for mouse interaction but keep a visible ring for keyboard focus. */
+button {
+  /* Without this, Chrome renders the button with native OS widget
+     theming (appearance: auto), which draws its own platform focus
+     indicator as part of that native rendering — completely bypassing
+     the CSS `outline` property below, which is why outline:none alone
+     didn't remove the border left after a click. */
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-forest);
+  outline-offset: 2px;
+}
+
+/* Firefox draws its own dotted/solid inner focus border via this
+   pseudo-element, independent of `outline` — outline:none alone
+   doesn't remove it, which is why a border can persist after a click. */
+button::-moz-focus-inner {
+  border: 0;
+}
+
+/* Login screen */
+
+.login-card {
+  position: relative;
+}
+
+.login-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--color-forest);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.login-input {
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-input:focus {
+  border-color: var(--color-forest);
+  box-shadow: 0 0 0 3px var(--color-forest-soft);
+}
+
+.login-submit {
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.login-submit:hover:not(:disabled) {
+  background: #2946c9; /* hand-picked darker shade of --color-forest for hover, no token exists for it */
+  box-shadow: var(--shadow-card-hover);
+}
+
+.login-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.login-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  display: inline-block;
+  animation: spin 0.6s linear infinite;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.figure-negative {
+  color: var(--color-rust);
+}
+
+.figure-positive {
+  color: var(--color-forest);
+}
+
+/* Reusable card class — for anywhere a plain <div> was styled inline,
+   this can be dropped in as a className to save repeating the same
+   three properties everywhere */
+.card {
+  background: var(--color-paper-raised);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-grey-line);
+}
+
+/* Trend badge — the small pill with an up/down arrow and percentage,
+   e.g. "↑ 14%" seen throughout the reference product */
+.trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.trend-badge.up {
+  color: #1A8A5C;
+  background: #E6F6EF;
+}
+
+.trend-badge.down {
+  color: var(--color-rust);
+  background: var(--color-rust-soft);
+}
+
+/* Data provenance badge — surfaces ExtractionAttempt.match_rate_pct as
+   a trust signal (see ProvenanceBadge.tsx). Reuses the same green as
+   .trend-badge.up for "verified" since both mean "good news, trust
+   this number." */
+.provenance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.provenance-verified {
+  color: #1A8A5C;
+  background: #E6F6EF;
+}
+
+.provenance-pending {
+  color: #A8720E; /* amber — same family as the mid-runway warning tone elsewhere, no token exists for it */
+  background: #FBF1DE;
+}
+
+.provenance-manual {
+  color: var(--color-grey);
+  background: var(--color-paper);
+  border: 1px solid var(--color-grey-line);
+}
+
+/* "Download Board Pack" print support --------------------------------
+   All six sections stay mounted at once so the whole report can print
+   in one document; only the active one is shown on screen. Inactive
+   sections are moved off-canvas with position:absolute + visibility:hidden
+   rather than display:none, because Recharts' ResponsiveContainer sizes
+   itself off its container's real layout width via ResizeObserver — a
+   display:none container never has one, so charts render blank when the
+   print stylesheet later reveals them. Staying (invisibly) in flow keeps
+   that measurement valid the whole time. */
+
+.print-banner,
+.print-section-heading {
+  display: none;
+}
+
+.section-body {
+  position: relative;
+  overflow: hidden;
+}
+
+.board-section-hidden {
+  position: absolute;
+  visibility: hidden;
+  top: 0;
+  left: -99999px;
+  width: 100%;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-banner {
+    display: block;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--color-grey);
+    margin: 0 0 var(--space-4) 0;
+  }
+
+  .print-section-heading {
+    display: block;
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    color: var(--color-ink);
+    margin: 0 0 var(--space-4) 0;
+  }
+
+  .section-body {
+    overflow: visible;
+  }
+
+  .board-section-hidden {
+    position: static;
+    visibility: visible;
+    top: auto;
+    left: auto;
+    width: auto;
+  }
+
+  .board-section {
+    break-before: page;
+  }
+
+  .board-section:first-child {
+    break-before: avoid;
+  }
+
+  body {
+    background: #FFFFFF;
+  }
+
+  .card {
+    box-shadow: none !important;
+  }
+}
+
+/* Skeleton loading placeholders — shape-matched blocks with a shimmer
+   sweep, so a loading state holds the same footprint as the content it
+   precedes instead of collapsing the layout down to a line of text. */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--color-grey-line) 25%, #F0F2F7 37%, var(--color-grey-line) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
