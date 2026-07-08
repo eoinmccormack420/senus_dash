@@ -164,13 +164,24 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
- 
-# CORS — update this once you have your actual Vercel frontend URL.
-# Keep localhost:5173 in the list too, so local dev against the
-# deployed backend still works if you need it.
+
+# Single-service deployment: the React build (senus-dashboard/dist) is
+# served directly by WhiteNoise at the site root, separate from
+# Django's own /static/ app assets above. WHITENOISE_ROOT exists
+# exactly for this — serving a whole extra directory of files at the
+# root — which matters here because Vite's build references its own
+# assets as root-relative ("/assets/...", "/favicon.svg"), not
+# "/static/..."-prefixed, so it has to be a distinct mechanism from
+# STATIC_ROOT rather than folded into it.
+FRONTEND_DIST_DIR = BASE_DIR.parent / "senus-dashboard" / "dist"
+WHITENOISE_ROOT = FRONTEND_DIST_DIR
+
+# CORS — FRONTEND_URL must be set to the frontend's actual Railway
+# service URL (https://..., no trailing slash). Keep localhost:5173 in
+# the list too, so local dev against the deployed backend still works.
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    os.environ.get("FRONTEND_URL", ""),  # e.g. https://senus-dashboard.vercel.app
+    os.environ.get("FRONTEND_URL", ""),  # e.g. https://senus-dashboard.up.railway.app
 ]
 CORS_ALLOWED_ORIGINS = [origin for origin in CORS_ALLOWED_ORIGINS if origin]
  
@@ -180,3 +191,12 @@ CORS_ALLOW_HEADERS = list(default_headers) + ["authorization"]
 SECURE_SSL_REDIRECT = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+
+# Railway (like Heroku/Render/Fly) terminates TLS at its edge and
+# forwards plain HTTP internally. Without this, Django can't tell a
+# proxied HTTPS request from a genuinely insecure one, so
+# SECURE_SSL_REDIRECT above would redirect every request to https://
+# even ones that already arrived as https:// — an infinite redirect
+# loop. This tells Django to trust the standard X-Forwarded-Proto
+# header Railway's edge sets.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

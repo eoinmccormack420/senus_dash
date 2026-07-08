@@ -1,11 +1,12 @@
 // src/api/client.ts
 //
-// Typed client for the Django REST Framework endpoints built earlier
-// (FinancialPeriodViewSet). Adjust API_BASE_URL to match your deployed
-// backend (Railway URL) or leave as-is for local dev against
-// localhost:8000.
+// Typed client for the Django REST Framework endpoints. Always uses a
+// relative path — Django serves this same build in production
+// (assiduous_dash/urls.py's catch-all), so the API is same-origin
+// there. In local dev, vite.config.ts proxies /api to localhost:8000
+// so the same relative path works without a separate env var.
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 export interface PLStatement {
   id: number;

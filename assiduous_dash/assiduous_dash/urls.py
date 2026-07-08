@@ -15,9 +15,32 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.conf import settings
+from django.http import FileResponse, Http404
+from django.urls import path, include, re_path
+
+
+def serve_frontend(request):
+    """
+    Serves the React build's index.html for every non-API, non-admin
+    route (single-service deployment — see WHITENOISE_ROOT in
+    settings.py for how the JS/CSS/etc. assets index.html references
+    get served). A plain FileResponse is enough since index.html isn't
+    a Django template — it's Vite's static build output, unmodified.
+    """
+    index_path = settings.FRONTEND_DIST_DIR / "index.html"
+    if not index_path.exists():
+        raise Http404(
+            "Frontend build not found at "
+            f"{index_path} — did `npm run build` run in senus-dashboard/?"
+        )
+    return FileResponse(open(index_path, "rb"))
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/", include("board.urls")),
+    # Catch-all MUST be last: anything not matched above (i.e. not
+    # /admin/ or /api/) falls through to the React app.
+    re_path(r"^.*$", serve_frontend),
 ]
