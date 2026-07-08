@@ -14,6 +14,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
+import dj_database_url
+
 from corsheaders.defaults import default_headers
 
 # Load environment variables from .env file
@@ -26,12 +28,10 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
+# This literal is only ever used as the local-dev fallback — see the
+# env-driven SECRET_KEY assignment below, which overrides it whenever
+# a real SECRET_KEY env var is set (production).
 SECRET_KEY = 'django-insecure-eu0u1yn=(h+wt%yn*gx4v#1@hv92&anqo_)9l-+a077wyjh8nz'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -51,6 +51,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -77,11 +78,6 @@ TEMPLATES = [
         },
     },
 ]
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-]
-
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -138,10 +134,9 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
+# Static files (CSS, JavaScript, Images) — STATIC_URL/STATIC_ROOT/STORAGES
+# are set below (production config block), alongside WhiteNoise.
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
-
-STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -180,7 +175,6 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOWED_ORIGINS = [origin for origin in CORS_ALLOWED_ORIGINS if origin]
  
 # Needed for the Authorization header (token auth) to pass CORS preflight
-from corsheaders.defaults import default_headers
 CORS_ALLOW_HEADERS = list(default_headers) + ["authorization"]
  
 SECURE_SSL_REDIRECT = not DEBUG

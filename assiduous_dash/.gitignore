@@ -7,6 +7,7 @@ venv/
 node_modules/
 *.log
 .DS_Store
+staticfiles/
 
 # Google service account keys — never commit credentials, even if you
 # end up storing the key file under the project despite the setup
