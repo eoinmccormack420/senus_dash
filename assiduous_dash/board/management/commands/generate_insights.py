@@ -16,12 +16,34 @@ comparable period for trend context), builds a per-section summary
 dict, and calls Gemini to write commentary. Saves/updates one
 AIInsight row per (period, section) — safe to re-run, it overwrites
 the existing commentary for that section rather than duplicating rows.
+
+Caching: the exact (current_summary, prior_summary) pair handed to the
+prompt is hashed (SHA-256) and stored on the AIInsight row alongside
+the generated text — prior_summary is included because a backfill to
+the PRIOR period's figures (e.g. correcting a ground-truth error)
+changes the trend context this period's commentary was written
+against, even though this period's own numbers didn't move. On a
+re-run, if a row already exists for (period, section) and its stored
+hash matches, the figures are unchanged since the commentary was last
+written — Gemini would just be re-narrating identical numbers, so the
+call is skipped entirely. Pass --force to regenerate anyway (e.g.
+after a prompt/instructions change with no underlying data change).
 """
+
+import hashlib
+import json
 
 from django.core.management.base import BaseCommand, CommandError
 
 from board.models import FinancialPeriod, AIInsight
 from board.extraction.commentary import generate_commentary, SECTION_INSTRUCTIONS
+
+
+def _hash_summaries(current_summary: dict, prior_summary: dict | None) -> str:
+    canonical = json.dumps(
+        {"current": current_summary, "prior": prior_summary}, sort_keys=True, default=str
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _pl_summary(period: FinancialPeriod) -> dict | None:
@@ -128,6 +150,11 @@ class Command(BaseCommand):
             choices=list(SECTION_INSTRUCTIONS.keys()),
             help="Generate just one section (omit to generate all sections)",
         )
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Regenerate even if the source figures are unchanged since the last run",
+        )
 
     def handle(self, *args, **options):
         try:
@@ -155,6 +182,12 @@ class Command(BaseCommand):
                 continue
 
             prior_summary = builder(prior_period) if prior_period else None
+            data_hash = _hash_summaries(current_summary, prior_summary)
+
+            existing = AIInsight.objects.filter(period=period, section=section).first()
+            if existing and existing.source_data_hash == data_hash and not options["force"]:
+                self.stdout.write(f"  skip {section}: source figures unchanged, cached commentary reused")
+                continue
 
             self.stdout.write(f"Generating {section} commentary for {period.label}...")
             try:
@@ -166,6 +199,10 @@ class Command(BaseCommand):
             AIInsight.objects.update_or_create(
                 period=period,
                 section=section,
-                defaults={"generated_text": text, "model_used": "gemini-2.5-flash"},
+                defaults={
+                    "generated_text": text,
+                    "model_used": "gemini-2.5-flash",
+                    "source_data_hash": data_hash,
+                },
             )
             self.stdout.write(self.style.SUCCESS(f"  saved ({len(text)} chars)"))

@@ -410,6 +410,12 @@ class AIInsight(models.Model):
     generated_text = models.TextField()
     model_used = models.CharField(max_length=50, default="gemini-3.5-flash")
     generated_at = models.DateTimeField(auto_now_add=True)
+    # SHA-256 of the exact figures fed into the prompt for this
+    # commentary (see generate_insights.py). Lets generate_insights skip
+    # the Gemini call on a re-run when the underlying financial data
+    # hasn't changed since the last generation, rather than re-spending
+    # an API call to (deterministically) re-narrate the same numbers.
+    source_data_hash = models.CharField(max_length=64, blank=True)
 
     class Meta:
         ordering = ["-generated_at"]
