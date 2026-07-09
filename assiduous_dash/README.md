@@ -2,8 +2,8 @@
 
 A full-stack board reporting platform for Senus PLC, built for the Assiduous Technology Graduate technical assessment. Financial data enters the system via AI extraction from source PDFs, is validated in code before it's trusted, and powers a dashboard a CEO or board member would actually use — not just a demo of an AI call.
 
-**Live app:** [add deployed URL once live]
-**Login:** [add demo credentials once deployed, or note "credentials on request"]
+**Live app:** https://senusdash-production.up.railway.app
+**Login:** credentials on request
 
 ---
 
@@ -149,13 +149,12 @@ npm run dev
 | `GOOGLE_SERVICE_ACCOUNT_KEY_PATH` | Google Drive ingestion only |
 | `DRIVE_FOLDER_ID` | Google Drive ingestion only |
 
-Django's `SECRET_KEY` and database are currently hardcoded for local development (SQLite) — not yet wired to environment variables, since there's no deployment target configured yet. That's the first thing to change before deploying (see below).
+For local development, `SECRET_KEY` falls back to a hardcoded dev value and the database defaults to SQLite. In production (deployed on Railway, see above), `SECRET_KEY` and `DATABASE_URL` are read from the environment — Railway provisions a managed Postgres instance and injects `DATABASE_URL` automatically, which `settings.py` picks up via `dj_database_url` in place of the SQLite fallback.
 
 ---
 
 ## 9. What I'd build next with more time
 
-- Wire `SECRET_KEY` and the database to environment variables and move to PostgreSQL for an actual deployment (currently local-only, SQLite)
-- Extend the extraction pipeline to the FY2024/FY2025 annual report documents, to validate it against a second document format, not just the half-year results template
+- Run the FY2024/FY2025 annual report documents through the AI extraction pipeline itself (they're currently seeded as verified-accurate manual entries, cross-checked by hand against the source statutory accounts, rather than run through Gemini) to validate the pipeline against a second document format, not just the half-year results template
 - Trigger `sync_drive_documents` automatically on new file upload (Drive push notifications / a scheduled poll) instead of a manual CLI run
 - A natural-language query interface over the board data (Gemini function-calling against the DRF API) — a genuine "ask the board report a question" feature
