@@ -165,15 +165,21 @@ STORAGES = {
     },
 }
 
-# Single-service deployment: the React build (senus-dashboard/dist) is
-# served directly by WhiteNoise at the site root, separate from
-# Django's own /static/ app assets above. WHITENOISE_ROOT exists
-# exactly for this — serving a whole extra directory of files at the
-# root — which matters here because Vite's build references its own
-# assets as root-relative ("/assets/...", "/favicon.svg"), not
-# "/static/..."-prefixed, so it has to be a distinct mechanism from
-# STATIC_ROOT rather than folded into it.
-FRONTEND_DIST_DIR = BASE_DIR.parent / "senus-dashboard" / "dist"
+# Single-service deployment: the React build is served directly by
+# WhiteNoise at the site root, separate from Django's own /static/ app
+# assets above. WHITENOISE_ROOT exists exactly for this — serving a
+# whole extra directory of files at the root — which matters here
+# because Vite's build references its own assets as root-relative
+# ("/assets/...", "/favicon.svg"), not "/static/..."-prefixed, so it
+# has to be a distinct mechanism from STATIC_ROOT rather than folded
+# into it.
+#
+# This lives INSIDE assiduous_dash/ (built there directly by Vite's
+# outDir config, not senus-dashboard/dist as a sibling) because
+# Railway's build for this service only packages the assiduous_dash/
+# subtree — confirmed via a deploy log showing WhiteNoise couldn't
+# find a sibling directory at runtime.
+FRONTEND_DIST_DIR = BASE_DIR / "frontend_dist"
 WHITENOISE_ROOT = FRONTEND_DIST_DIR
 
 # CORS — FRONTEND_URL must be set to the frontend's actual Railway
