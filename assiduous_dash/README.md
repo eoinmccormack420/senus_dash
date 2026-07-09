@@ -69,6 +69,10 @@ Built with Claude (Anthropic) as an active development partner throughout — ar
 
 3. **The pipeline caught my own data entry gaps.** Several early cross-check "failures" (`development_costs`, `share_premium`, `other_operating_income`) turned out to be places where my manually-seeded ground truth was incomplete, not places where Gemini was wrong. Once corrected against the source document, those fields hit 100% match — the strongest evidence that the validation pipeline is a genuine two-way check, not just a filter on AI output.
 
+4. **Scanned PDFs have no text layer.** Running extraction against Senus's actual statutory annual report (`ADF Farm Solutions Consolidated Financial Statements`, the company's registered legal name pre-rebrand) returned an empty JSON object for every statement type — `schema_invalid`, `raw_response: {}`. Root cause wasn't Gemini: `pdfplumber` found zero characters and zero extractable tables on every page (confirmed via `page.chars`), because the document is a scanned/photographed filing with one image per page, not a digitally-generated PDF with an embedded text layer. `pdf_utils.py` had no fallback for that case — it just sent Gemini an (empty) text excerpt, and Gemini correctly reported finding nothing rather than hallucinate. Fixed by adding `has_extractable_text()` (checks `page.chars` directly, cheaper than a failed extraction) and `extract_statement_from_pdf()` in `gemini_client.py`, which attaches the raw PDF bytes to the Gemini request instead of pre-extracted text — Gemini 2.5 Flash reads scanned pages natively as images, so this needed no separate OCR library. Result: 0% → 54–100% field match rate per statement across FY2024 and FY2025, with the review step (below) catching two remaining cases where Gemini's reading of a scanned column still disagreed with the source.
+
+5. **Human review still found things the AI got wrong.** Even after the vision fallback fixed extraction outright, two `cash_flow` fields for FY2024 (`working_capital_movement`, `loans_net`) didn't match the source once checked by hand against the scanned cash flow statement — Gemini's reading merged two adjacent line items that should have stayed separate. Corrected manually from the source document rather than trusted as-extracted, and left visible in the `ExtractionAttempt` audit trail (`match_rate_pct: 80.0`) rather than silently overwritten to look like a clean pass. This is the human-approval gate (`ExtractionAttempt.verified`) doing its actual job, not a formality — FY2024 and FY2025 are marked `verified` because a human confirmed every field against the source, not because Gemini's raw output was assumed correct.
+
 ---
 
 ## 4. Data model & API
@@ -97,7 +101,6 @@ Safe to re-run: already-processed files (tracked via `ExtractionAttempt.source_d
 
 ## 6. Assumptions made
 
-- **Balance sheet equity breakdown for FY2024/FY2025** — source documents didn't itemise `share_capital` / `share_premium` / `retained_earnings` separately; the residual was placed into `retained_earnings`. Flagged in code comments, not a silent error.
 - **HY2025 has no balance sheet** — the source document provided P&L and cash flow comparisons for HY2025 but not a standalone Dec-2024 balance sheet.
 - **`net_investing_cash`** for early periods was derived (`net_cash_movement − net_operating_cash − net_financing_cash`) where the source didn't break it out explicitly.
 - **BusinessMetrics is genuinely sparse across periods by design** — customer/ACV data came from a corporate presentation, market cap from a listing document, so no single period has both yet. The Returns section shows this honestly rather than fabricating figures.
@@ -155,6 +158,6 @@ For local development, `SECRET_KEY` falls back to a hardcoded dev value and the 
 
 ## 9. What I'd build next with more time
 
-- Run the FY2024/FY2025 annual report documents through the AI extraction pipeline itself (they're currently seeded as verified-accurate manual entries, cross-checked by hand against the source statutory accounts, rather than run through Gemini) to validate the pipeline against a second document format, not just the half-year results template
+- Extend the OCR/vision fallback (see §3.4) with a genuine hybrid mode — use pdfplumber's text where a page has it and only fall back to vision per-page, rather than per-document, for mixed scanned/digital PDFs
 - Trigger `sync_drive_documents` automatically on new file upload (Drive push notifications / a scheduled poll) instead of a manual CLI run
 - A natural-language query interface over the board data (Gemini function-calling against the DRF API) — a genuine "ask the board report a question" feature

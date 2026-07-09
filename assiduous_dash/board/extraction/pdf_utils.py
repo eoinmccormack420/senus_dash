@@ -47,6 +47,30 @@ def extract_text_and_tables(pdf_path: str) -> str:
     return "\n".join(parts)
 
 
+def has_extractable_text(pdf_path: str, min_chars: int = 200) -> bool:
+    """
+    True if the PDF has a real embedded text layer worth running through
+    pdfplumber. False for scanned/photographed statutory filings, where
+    every page is really just an image — pdfplumber's text and table
+    extraction silently return nothing for those (no exception, no
+    text), which upstream previously looked identical to "this document
+    has no financial data" rather than "this document needs to be read
+    as an image." Checking `page.chars` directly (rather than
+    `page.extract_text()`) distinguishes the two cases cheaply, without
+    paying for a Gemini call first.
+    """
+    if not Path(pdf_path).exists():
+        raise FileNotFoundError(f"No PDF found at {pdf_path}")
+
+    total_chars = 0
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            total_chars += len(page.chars)
+            if total_chars >= min_chars:
+                return True
+    return False
+
+
 def extract_relevant_section(full_text: str, keywords: List[str], window: int = 2000) -> str:
     """
     Optional trimming helper: pulls out a window of text around the

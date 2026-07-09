@@ -17,8 +17,8 @@ from typing import Optional
 from pydantic import ValidationError
 
 from .schemas import SCHEMA_REGISTRY
-from .pdf_utils import extract_text_and_tables, extract_relevant_section
-from .gemini_client import extract_statement
+from .pdf_utils import extract_text_and_tables, extract_relevant_section, has_extractable_text
+from .gemini_client import extract_statement, extract_statement_from_pdf
 
 # Keywords used to locate the relevant section of the document for each
 # statement type, so Gemini gets a focused excerpt rather than the full
@@ -200,33 +200,47 @@ def run_extraction(
         status="pending",
     )
 
-    # Stage 1 — read the document
+    # Stage 1 — read the document. Scanned/photographed statutory
+    # filings (no embedded text layer) skip straight to the PDF-native
+    # vision path — pdfplumber has nothing to extract from those, and
+    # sending it an empty text excerpt just makes Gemini correctly
+    # report no data found rather than surfacing the real problem.
     try:
-        full_text = extract_text_and_tables(pdf_path)
+        is_scanned = not has_extractable_text(pdf_path)
     except Exception as exc:  # noqa: BLE001
         attempt.status = "api_error"
         attempt.error_message = f"PDF extraction failed: {exc}"
         attempt.save()
         return attempt
 
-    # Narrow to the relevant section for this statement type so Gemini
-    # isn't scanning the whole document (see SECTION_KEYWORDS above).
-    # Falls back to the full text if no keyword match is found.
-    source_text = extract_relevant_section(
-        full_text,
-        keywords=SECTION_KEYWORDS.get(statement_kind, []),
-        window=SECTION_WINDOW.get(statement_kind, 2000),
-    )
-
     # Stage 2 — call Gemini
     try:
-        raw_json = extract_statement(
-            statement_kind,
-            period.label,
-            source_text,
-            period_end_date=str(period.end_date),
-            period_start_date=str(period.start_date),
-        )
+        if is_scanned:
+            raw_json = extract_statement_from_pdf(
+                statement_kind,
+                period.label,
+                pdf_path,
+                period_end_date=str(period.end_date),
+                period_start_date=str(period.start_date),
+            )
+        else:
+            full_text = extract_text_and_tables(pdf_path)
+            # Narrow to the relevant section for this statement type so
+            # Gemini isn't scanning the whole document (see
+            # SECTION_KEYWORDS above). Falls back to the full text if no
+            # keyword match is found.
+            source_text = extract_relevant_section(
+                full_text,
+                keywords=SECTION_KEYWORDS.get(statement_kind, []),
+                window=SECTION_WINDOW.get(statement_kind, 2000),
+            )
+            raw_json = extract_statement(
+                statement_kind,
+                period.label,
+                source_text,
+                period_end_date=str(period.end_date),
+                period_start_date=str(period.start_date),
+            )
         attempt.raw_response = raw_json
     except Exception as exc:  # noqa: BLE001
         attempt.status = "api_error"

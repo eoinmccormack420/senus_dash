@@ -68,7 +68,7 @@ def _get_client() -> genai.Client:
 def build_prompt(
     statement_kind: str,
     period_label: str,
-    source_text: str,
+    source_text: Optional[str],
     period_end_date: Optional[str] = None,
     period_start_date: Optional[str] = None,
 ) -> str:
@@ -86,6 +86,22 @@ column whose date matches {period_end_date} (or the nearest label such
 as "31-Dec-25" for a 2025-12-31 period end). Do NOT use the comparative/
 prior-year column even though it sits right next to the correct one.
 """
+
+    # source_text is None for scanned/image-only PDFs, where the raw PDF
+    # bytes are attached to the request directly instead (see
+    # extract_statement_from_pdf below) — there's no extracted text to
+    # embed in the prompt in that case, only an instruction to read the
+    # attached file.
+    source_block = (
+        f"""Source document text:
+---
+{source_text}
+---"""
+        if source_text is not None
+        else """The source document is attached to this request as a PDF file.
+Read it directly — including any pages that are scanned images rather
+than digital text — to find the figures below."""
+    )
 
     return f"""You are extracting structured financial data from a company's
 source financial document. The company is Senus PLC. The reporting
@@ -119,10 +135,7 @@ Rules:
   even if shown as positive or in brackets in the source.
   Revenue, gross_profit, assets, and income line items are POSITIVE.
 
-Source document text:
----
-{source_text}
----
+{source_block}
 
 JSON output:"""
 
@@ -167,5 +180,57 @@ def extract_statement(
                 continue
             raise RuntimeError(
                 f"Gemini extraction failed for {statement_kind}/{period_label} "
+                f"after {max_retries + 1} attempt(s): {last_error}"
+            ) from last_error
+
+
+def extract_statement_from_pdf(
+    statement_kind: str,
+    period_label: str,
+    pdf_path: str,
+    max_retries: int = 1,
+    period_end_date: Optional[str] = None,
+    period_start_date: Optional[str] = None,
+) -> dict:
+    """
+    Same contract as extract_statement(), but for scanned/image-only
+    PDFs with no usable text layer (see pdf_utils.has_extractable_text).
+    Gemini 2.5 Flash reads PDF pages natively as images, so rather than
+    bolting on a separate OCR library, the raw file bytes are attached
+    to the request directly — the model does the equivalent of OCR
+    itself as part of the same multimodal call, over the actual page
+    images rather than pdfplumber's (empty) text extraction.
+    """
+    client = _get_client()
+    prompt = build_prompt(
+        statement_kind,
+        period_label,
+        source_text=None,
+        period_end_date=period_end_date,
+        period_start_date=period_start_date,
+    )
+
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = f.read()
+    pdf_part = types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf")
+
+    last_error: Optional[Exception] = None
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=[pdf_part, prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                ),
+            )
+            return json.loads(response.text)
+        except Exception as exc:  # noqa: BLE001 - deliberately broad, logged upstream
+            last_error = exc
+            if attempt < max_retries:
+                time.sleep(2)
+                continue
+            raise RuntimeError(
+                f"Gemini PDF extraction failed for {statement_kind}/{period_label} "
                 f"after {max_retries + 1} attempt(s): {last_error}"
             ) from last_error
