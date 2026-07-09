@@ -33,6 +33,7 @@ class PLStatementSerializer(serializers.ModelSerializer):
     gross_margin_pct = serializers.ReadOnlyField()
     ebitda = serializers.ReadOnlyField()
     admin_expense_pct = serializers.ReadOnlyField()
+    ebitda_margin_pct = serializers.ReadOnlyField()
 
     class Meta:
         model = PLStatement
@@ -52,6 +53,7 @@ class PLStatementSerializer(serializers.ModelSerializer):
             "gross_margin_pct",
             "ebitda",
             "admin_expense_pct",
+            "ebitda_margin_pct",
         ]
 
 
@@ -174,6 +176,12 @@ class PeriodDetailSerializer(serializers.ModelSerializer):
     business_metrics = BusinessMetricsSerializer(read_only=True, allow_null=True)
     ai_insights = AIInsightSerializer(many=True, read_only=True)
     provenance = serializers.ReadOnlyField()
+    # Cross-statement metrics (need pl_statement + balance_sheet/cash_flow
+    # together, so they live on FinancialPeriod itself rather than any
+    # single nested statement — see models.py for the calculations).
+    yoy_revenue_growth_pct = serializers.ReadOnlyField()
+    roce_pct = serializers.ReadOnlyField()
+    dscr = serializers.ReadOnlyField()
 
     class Meta:
         model = FinancialPeriod
@@ -191,4 +199,7 @@ class PeriodDetailSerializer(serializers.ModelSerializer):
             "business_metrics",
             "ai_insights",
             "provenance",
+            "yoy_revenue_growth_pct",
+            "roce_pct",
+            "dscr",
         ]

@@ -48,6 +48,85 @@ class FinancialPeriod(models.Model):
             "verified": all(a.verified for a in attempts),
         }
 
+    @property
+    def yoy_revenue_growth_pct(self):
+        """
+        Revenue growth vs. the same period one year prior — matched by
+        period_type and exact year-prior end_date (HY2026 compares to
+        HY2025, not to whatever row happens to be previous in a list,
+        which could be a different period_type entirely and make the
+        comparison meaningless). Returns None if no matching prior-year
+        period exists yet (e.g. the earliest seeded period) rather than
+        comparing against the wrong thing.
+        """
+        pl = getattr(self, "pl_statement", None)
+        if pl is None or not pl.revenue:
+            return None
+        try:
+            prior_year_end = self.end_date.replace(year=self.end_date.year - 1)
+        except ValueError:
+            # 29 Feb with no leap year one year prior
+            prior_year_end = self.end_date.replace(year=self.end_date.year - 1, day=28)
+
+        prior_period = FinancialPeriod.objects.filter(
+            period_type=self.period_type, end_date=prior_year_end
+        ).first()
+        prior_pl = getattr(prior_period, "pl_statement", None) if prior_period else None
+        if prior_pl is None or not prior_pl.revenue:
+            return None
+
+        return round(float((pl.revenue - prior_pl.revenue) / prior_pl.revenue) * 100, 1)
+
+    @property
+    def roce_pct(self):
+        """
+        Return on Capital Employed = EBIT / (Total Assets − Current
+        Liabilities). Operating result (operating_loss) is used as the
+        EBIT proxy — it already sits below gross profit and admin
+        expenses, above interest and tax, matching EBIT's usual
+        position in the P&L. Expected to be negative for Senus at its
+        current pre-profitability stage — that's a true reading of the
+        business, not a bug, and the frontend should present it as
+        such rather than hide it.
+        """
+        pl = getattr(self, "pl_statement", None)
+        bs = getattr(self, "balance_sheet", None)
+        if pl is None or bs is None:
+            return None
+        capital_employed = (
+            bs.total_fixed_assets + bs.total_current_assets - abs(bs.current_creditors)
+        )
+        if not capital_employed:
+            return None
+        return round(float(pl.operating_loss / capital_employed) * 100, 1)
+
+    @property
+    def dscr(self):
+        """
+        Debt Service Coverage Ratio = EBITDA / (interest + principal
+        repaid). Principal repaid is approximated from
+        CashFlow.loans_net: a negative value means net repayment of
+        debt during the period, so its magnitude is used as the
+        principal-repayment component; a positive value (net new
+        borrowing) contributes nothing to debt SERVICE, which is a
+        cash outflow concept, not a net-of-new-debt one. This is a
+        reasonable approximation given available data, not a
+        treasury-grade calculation — flagged as such rather than
+        presented as precise.
+        """
+        pl = getattr(self, "pl_statement", None)
+        cf = getattr(self, "cash_flow", None)
+        if pl is None or cf is None:
+            return None
+        ebitda = pl.ebitda
+        if ebitda is None:
+            return None
+        principal_repaid = abs(cf.loans_net) if cf.loans_net < 0 else 0
+        debt_service = abs(pl.interest_expense) + principal_repaid
+        if not debt_service:
+            return None
+        return round(float(ebitda / debt_service), 2)
+
 
 class PLStatement(models.Model):
     """Consolidated Profit and Loss / Income Statement for a period."""
@@ -109,6 +188,13 @@ class PLStatement(models.Model):
         if self.revenue and self.revenue != 0:
             return round((self.admin_expenses / self.revenue) * 100, 1)
         return None
+
+    @property
+    def ebitda_margin_pct(self):
+        ebitda = self.ebitda
+        if ebitda is None or not self.revenue:
+            return None
+        return round(float(ebitda / self.revenue) * 100, 1)
 
 
 class BalanceSheet(models.Model):
