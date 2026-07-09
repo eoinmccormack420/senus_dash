@@ -8,9 +8,17 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
 dist-ssr
 *.local
+
+# dist/ is intentionally committed, not ignored: this is a single-
+# service Railway deployment where Django serves the built React app
+# directly (see assiduous_dash/urls.py + WHITENOISE_ROOT in
+# settings.py). Railway's build only installs Python — there's no
+# Node build step — so the built output has to already be in the repo
+# for it to exist in the deployed image at all. Rebuild with
+# `npm run build` and commit the result whenever frontend source
+# changes.
 
 # Editor directories and files
 .vscode/*
