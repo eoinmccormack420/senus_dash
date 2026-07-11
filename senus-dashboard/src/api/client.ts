@@ -24,6 +24,7 @@ export interface PLStatement {
   gross_margin_pct: number | null;
   ebitda: number | null;
   admin_expense_pct: number | null;
+  ebitda_margin_pct: number | null;
 }
 
 export interface BalanceSheet {
@@ -109,6 +110,11 @@ export interface PeriodDetail extends PeriodSummary {
   cash_flow: CashFlow | null;
   business_metrics: BusinessMetrics | null;
   ai_insights: AIInsight[];
+  // Cross-statement metrics — need pl_statement + balance_sheet/cash_flow
+  // together, computed on FinancialPeriod itself (see board/models.py).
+  yoy_revenue_growth_pct: number | null;
+  roce_pct: number | null;
+  dscr: number | null;
 }
 
 async function apiFetch<T>(path: string): Promise<T> {
@@ -149,6 +155,21 @@ export async function login(username: string, password: string): Promise<{ token
   });
   if (!response.ok) {
     throw new Error("Invalid username or password.");
+  }
+  const data = await response.json();
+  setToken(data.token);
+  return data;
+}
+
+export async function googleLogin(credential: string): Promise<{ token: string; username: string }> {
+  const response = await fetch(`${API_BASE_URL}/auth/google/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ credential }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail || "Google sign-in failed.");
   }
   const data = await response.json();
   setToken(data.token);

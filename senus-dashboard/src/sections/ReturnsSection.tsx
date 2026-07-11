@@ -24,6 +24,7 @@ import {
 import { boardApi, type PeriodDetail, num, formatEUR, formatPct } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
 import { Skeleton } from "../components/Skeleton";
+import { chartCard, axisTick, tooltipStyle, chartColors } from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail;
@@ -64,125 +65,150 @@ export function ReturnsSection({ detail }: Props) {
   }, []);
 
   const bm = detail.business_metrics;
-
-  if (!bm) {
-    return (
-      <div style={emptyState}>
-        <p style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", color: "var(--color-ink)" }}>
-          No business metrics available for {detail.label} yet.
-        </p>
-        <p style={{ color: "var(--color-grey)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
-          Customer, ACV, and market data are typically sourced from a
-          separate corporate presentation document, not the financial
-          statements — run the extraction pipeline against that document
-          for this period once available.
-        </p>
-      </div>
-    );
-  }
-
-  const hasMarketData = bm.market_cap != null || bm.share_price != null;
-  const hasCustomerData = bm.total_customers != null || bm.enterprise_customers != null;
+  const hasMarketData = bm ? bm.market_cap != null || bm.share_price != null : false;
+  const hasCustomerData = bm ? bm.total_customers != null || bm.enterprise_customers != null : false;
 
   return (
     <div>
       <AIInsightCard insight={detail.ai_insights.find((i) => i.section === "returns")} />
+
+      {/* ROCE is a pl_statement + balance_sheet calculation, independent
+          of BusinessMetrics — it renders regardless of whether the
+          corporate-presentation-sourced customer/market data below is
+          available for this period, unlike everything else in this
+          section. */}
+      <div style={{ marginBottom: "var(--space-5)" }}>
+        <h2 style={sectionTitle}>Capital Efficiency</h2>
+        <div style={breakdownGrid}>
+          <MetricRow
+            label="ROCE (Return on Capital Employed)"
+            value={detail.roce_pct !== null ? `${detail.roce_pct.toFixed(1)}%` : null}
+            bold
+          />
+        </div>
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)", marginTop: "var(--space-2)" }}>
+          ROCE = operating result ÷ (total assets − current liabilities).
+          Negative here reflects Senus's current pre-profitability growth
+          stage, not an error — a company still investing ahead of
+          revenue will show negative ROCE until operating losses narrow.
+        </p>
+      </div>
+
+      {!bm && (
+        <div style={emptyState}>
+          <p style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", color: "var(--color-ink)" }}>
+            No business metrics available for {detail.label} yet.
+          </p>
+          <p style={{ color: "var(--color-grey)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
+            Customer, ACV, and market data are typically sourced from a
+            separate corporate presentation document, not the financial
+            statements — run the extraction pipeline against that document
+            for this period once available.
+          </p>
+        </div>
+      )}
+
       {trend.length >= 2 && (
         <div style={{ marginBottom: "var(--space-6)" }}>
           <h2 style={sectionTitle}>Market capitalisation trend</h2>
           {trendLoading ? (
             <Skeleton height={220} radius="var(--radius-md)" />
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                <CartesianGrid stroke="var(--color-grey-line)" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontFamily: "Inter, sans-serif", fontSize: 12, fill: "#8A8579" }}
-                  axisLine={{ stroke: "var(--color-grey-line)" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontFamily: "Inter, sans-serif", fontSize: 12, fill: "#8A8579" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `€${(v / 1000000).toFixed(1)}m`}
-                />
-                <Tooltip
-                  formatter={(value) => formatEUR(Number(value))}
-                  contentStyle={{
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: 13,
-                    border: "1px solid #E3E0D8",
-                    borderRadius: 4,
-                  }}
-                />
-                <Line type="monotone" dataKey="marketCap" name="Market Cap" stroke="#2B4F45" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div style={chartCard}>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                  <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={axisTick}
+                    axisLine={{ stroke: chartColors.gridLine }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={axisTick}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => `€${(v / 1000000).toFixed(1)}m`}
+                  />
+                  <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} />
+                  <Line
+                    type="monotone"
+                    dataKey="marketCap"
+                    name="Market Cap"
+                    stroke={chartColors.primary}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
-        <div>
-          <h2 style={sectionTitle}>Market</h2>
-          {hasMarketData ? (
-            <div style={breakdownGrid}>
-              <MetricRow label="Market Cap" value={bm.market_cap ? formatEUR(bm.market_cap) : null} bold />
-              <MetricRow label="Share Price" value={bm.share_price ? formatEUR(bm.share_price) : null} />
+      {bm && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
+            <div>
+              <h2 style={sectionTitle}>Market</h2>
+              {hasMarketData ? (
+                <div style={breakdownGrid}>
+                  <MetricRow label="Market Cap" value={bm.market_cap ? formatEUR(bm.market_cap) : null} bold />
+                  <MetricRow label="Share Price" value={bm.share_price ? formatEUR(bm.share_price) : null} />
+                </div>
+              ) : (
+                <NoDataNote text="No market data recorded for this period." />
+              )}
             </div>
-          ) : (
-            <NoDataNote text="No market data recorded for this period." />
-          )}
-        </div>
 
-        <div>
-          <h2 style={sectionTitle}>Customers &amp; Unit Economics</h2>
-          {hasCustomerData ? (
-            <div style={breakdownGrid}>
-              <MetricRow label="Total Customers" value={bm.total_customers?.toString() ?? null} bold />
-              <MetricRow label="Enterprise Customers" value={bm.enterprise_customers?.toString() ?? null} />
-              <MetricRow
-                label="ACV — Soil (per enterprise)"
-                value={bm.acv_soil_per_enterprise ? formatEUR(bm.acv_soil_per_enterprise) : null}
-                muted
-              />
-              <MetricRow
-                label="ACV — Era (per enterprise)"
-                value={bm.acv_era_per_enterprise ? formatEUR(bm.acv_era_per_enterprise) : null}
-                muted
-              />
-              <MetricRow
-                label="Revenue per Customer"
-                value={bm.revenue_per_customer ? formatEUR(bm.revenue_per_customer) : null}
-                bold
-              />
-              <MetricRow
-                label="Enterprise Revenue Concentration"
-                value={bm.enterprise_revenue_concentration != null ? formatPct(bm.enterprise_revenue_concentration) : null}
-              />
-              <MetricRow
-                label="Revenue — Ireland"
-                value={bm.revenue_ireland_pct ? formatPct(num(bm.revenue_ireland_pct)) : null}
-                muted
-              />
-              <MetricRow label="Employees" value={bm.employees?.toString() ?? null} muted />
+            <div>
+              <h2 style={sectionTitle}>Customers &amp; Unit Economics</h2>
+              {hasCustomerData ? (
+                <div style={breakdownGrid}>
+                  <MetricRow label="Total Customers" value={bm.total_customers?.toString() ?? null} bold />
+                  <MetricRow label="Enterprise Customers" value={bm.enterprise_customers?.toString() ?? null} />
+                  <MetricRow
+                    label="ACV — Soil (per enterprise)"
+                    value={bm.acv_soil_per_enterprise ? formatEUR(bm.acv_soil_per_enterprise) : null}
+                    muted
+                  />
+                  <MetricRow
+                    label="ACV — Era (per enterprise)"
+                    value={bm.acv_era_per_enterprise ? formatEUR(bm.acv_era_per_enterprise) : null}
+                    muted
+                  />
+                  <MetricRow
+                    label="Revenue per Customer"
+                    value={bm.revenue_per_customer ? formatEUR(bm.revenue_per_customer) : null}
+                    bold
+                  />
+                  <MetricRow
+                    label="Enterprise Revenue Concentration"
+                    value={bm.enterprise_revenue_concentration != null ? formatPct(bm.enterprise_revenue_concentration) : null}
+                  />
+                  <MetricRow
+                    label="Revenue — Ireland"
+                    value={bm.revenue_ireland_pct ? formatPct(num(bm.revenue_ireland_pct)) : null}
+                    muted
+                  />
+                  <MetricRow label="Employees" value={bm.employees?.toString() ?? null} muted />
+                </div>
+              ) : (
+                <NoDataNote text="No customer/ACV data recorded for this period." />
+              )}
             </div>
-          ) : (
-            <NoDataNote text="No customer/ACV data recorded for this period." />
-          )}
-        </div>
-      </div>
-
-      {(bm.pipeline_value || bm.pipeline_deals_count) && (
-        <div style={{ marginTop: "var(--space-5)" }}>
-          <h2 style={sectionTitle}>Pipeline</h2>
-          <div style={breakdownGrid}>
-            <MetricRow label="Pipeline Value" value={bm.pipeline_value ? formatEUR(bm.pipeline_value) : null} bold />
-            <MetricRow label="Pipeline Deals" value={bm.pipeline_deals_count?.toString() ?? null} />
           </div>
-        </div>
+
+          {(bm.pipeline_value || bm.pipeline_deals_count) && (
+            <div style={{ marginTop: "var(--space-5)" }}>
+              <h2 style={sectionTitle}>Pipeline</h2>
+              <div style={breakdownGrid}>
+                <MetricRow label="Pipeline Value" value={bm.pipeline_value ? formatEUR(bm.pipeline_value) : null} bold />
+                <MetricRow label="Pipeline Deals" value={bm.pipeline_deals_count?.toString() ?? null} />
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

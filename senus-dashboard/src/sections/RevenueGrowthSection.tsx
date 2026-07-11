@@ -23,6 +23,7 @@ import {
 import { boardApi, type PeriodDetail, num, formatEUR, formatPct } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
 import { Skeleton } from "../components/Skeleton";
+import { chartCard, axisTick, tooltipStyle, chartColors } from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail; // the currently selected period, from Dashboard
@@ -83,53 +84,57 @@ export function RevenueGrowthSection({ detail }: Props) {
         {trendLoading ? (
           <Skeleton height={280} radius="var(--radius-md)" />
         ) : (
-          <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-              <CartesianGrid stroke="var(--color-grey-line)" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fontFamily: "Inter, sans-serif", fontSize: 12, fill: "#8A8579" }}
-                axisLine={{ stroke: "var(--color-grey-line)" }}
-                tickLine={false}
-              />
-              <YAxis
-                yAxisId="revenue"
-                tick={{ fontFamily: "Inter, sans-serif", fontSize: 12, fill: "#8A8579" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
-              />
-              <YAxis
-                yAxisId="margin"
-                orientation="right"
-                tick={{ fontFamily: "Inter, sans-serif", fontSize: 12, fill: "#8A8579" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `${v}%`}
-              />
-              <Tooltip
-                formatter={(value, name) =>
-                  name === "Revenue" ? formatEUR(Number(value)) : formatPct(Number(value))
-                }
-                contentStyle={{
-                  fontFamily: "Inter, sans-serif",
-                  fontSize: 13,
-                  border: "1px solid #E3E0D8",
-                  borderRadius: 4,
-                }}
-              />
-              <Bar yAxisId="revenue" dataKey="revenue" name="Revenue" fill="#2B4F45" radius={[2, 2, 0, 0]} barSize={36} />
-              <Line
-                yAxisId="margin"
-                type="monotone"
-                dataKey="grossMarginPct"
-                name="Gross Margin %"
-                stroke="#B5462F"
-                strokeWidth={2}
-                dot={{ r: 3 }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <div style={chartCard}>
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={axisTick}
+                  axisLine={{ stroke: chartColors.gridLine }}
+                  tickLine={false}
+                />
+                <YAxis
+                  yAxisId="revenue"
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
+                />
+                <YAxis
+                  yAxisId="margin"
+                  orientation="right"
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `${v}%`}
+                />
+                <Tooltip
+                  formatter={(value, name) =>
+                    name === "Revenue" ? formatEUR(Number(value)) : formatPct(Number(value))
+                  }
+                  contentStyle={tooltipStyle}
+                />
+                <Bar
+                  yAxisId="revenue"
+                  dataKey="revenue"
+                  name="Revenue"
+                  fill={chartColors.primary}
+                  radius={[6, 6, 0, 0]}
+                  barSize={36}
+                />
+                <Line
+                  yAxisId="margin"
+                  type="monotone"
+                  dataKey="grossMarginPct"
+                  name="Gross Margin %"
+                  stroke={chartColors.negative}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
 
@@ -140,6 +145,16 @@ export function RevenueGrowthSection({ detail }: Props) {
           <BreakdownRow label="Cost of Sales" value={formatEUR(pl.cost_of_sales)} muted />
           <BreakdownRow label="Gross Profit" value={formatEUR(pl.gross_profit)} bold />
           <BreakdownRow label="Gross Margin" value={formatPct(pl.gross_margin_pct ?? undefined)} bold />
+          <BreakdownRow
+            label="Revenue YoY"
+            value={
+              detail.yoy_revenue_growth_pct !== null
+                ? formatPct(detail.yoy_revenue_growth_pct)
+                : "n/a — no prior-year period"
+            }
+            negative={(detail.yoy_revenue_growth_pct ?? 0) < 0}
+            bold
+          />
           <BreakdownRow label="Admin Expenses" value={formatEUR(pl.admin_expenses)} muted />
           <BreakdownRow
             label="Operating Loss"

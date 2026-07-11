@@ -22,6 +22,12 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
+
+from django.conf import settings
+from django.contrib.auth.models import User
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 
 from .models import FinancialPeriod
 from .serializers import (
@@ -84,6 +90,44 @@ class LoginView(ObtainAuthToken):
         serializer = self.serializer_class(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+        token, _created = Token.objects.get_or_create(user=user)
+        return Response({
+            "token": token.key,
+            "username": user.username,
+        })
+
+
+class GoogleLoginView(APIView):
+    """
+    POST { "credential": "<Google ID token from Google Identity Services>" }
+    -> { "token": "...", "username": "..." }
+
+    Verifies the ID token was issued by Google for our OAuth client, then
+    checks the email against GOOGLE_ALLOWED_EMAILS — a valid Google login
+    alone is not sufficient, since this dashboard serves unreleased
+    financial data to a small fixed set of reviewers, not the public.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        credential = request.data.get("credential")
+        if not credential:
+            return Response({"detail": "Missing credential."}, status=400)
+        if not settings.GOOGLE_OAUTH_CLIENT_ID:
+            return Response({"detail": "Google sign-in is not configured."}, status=503)
+
+        try:
+            idinfo = google_id_token.verify_oauth2_token(
+                credential, google_requests.Request(), settings.GOOGLE_OAUTH_CLIENT_ID
+            )
+        except ValueError:
+            return Response({"detail": "Invalid Google credential."}, status=401)
+
+        email = (idinfo.get("email") or "").lower()
+        if not idinfo.get("email_verified") or email not in settings.GOOGLE_ALLOWED_EMAILS:
+            return Response({"detail": "This Google account is not authorized."}, status=403)
+
+        user, _created = User.objects.get_or_create(username=email, defaults={"email": email})
         token, _created = Token.objects.get_or_create(user=user)
         return Response({
             "token": token.key,

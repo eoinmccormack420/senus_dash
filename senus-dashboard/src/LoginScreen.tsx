@@ -1,13 +1,39 @@
 // src/LoginScreen.tsx
 //
-// Simple username/password login gate. This is intentionally minimal
-// (single-user, token auth) rather than a full multi-tenant auth
-// system — appropriate scope for a board report tool with one
-// logged-in reviewer, not a SaaS product with user management. Worth
-// noting that scope decision explicitly in the README.
+// Username/password login gate, plus an optional "Sign in with Google"
+// button (only rendered when VITE_GOOGLE_CLIENT_ID is set at build time —
+// see board/views.py:GoogleLoginView on the backend, which additionally
+// enforces GOOGLE_ALLOWED_EMAILS). This is intentionally minimal
+// (single-tenant, token auth, small fixed reviewer list) rather than a
+// full multi-tenant auth system — appropriate scope for a board report
+// tool, not a SaaS product with user management. Worth noting that scope
+// decision explicitly in the README.
 
-import { useState } from "react";
-import { login } from "./api/client";
+import { useEffect, useRef, useState } from "react";
+import { login, googleLogin } from "./api/client";
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+
+// Minimal shape of the bits of the Google Identity Services API we use —
+// loaded via the <script> tag in index.html, not an npm package.
+interface GoogleIdCredentialResponse {
+  credential: string;
+}
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: GoogleIdCredentialResponse) => void;
+          }) => void;
+          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+        };
+      };
+    };
+  }
+}
 
 export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   const [username, setUsername] = useState("");
@@ -15,6 +41,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const googleButtonRef = useRef<HTMLDivElement>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,6 +57,49 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
     }
   }
 
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) return;
+
+    async function handleGoogleCredential(response: GoogleIdCredentialResponse) {
+      setError(null);
+      try {
+        await googleLogin(response.credential);
+        onSuccess();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Google sign-in failed.");
+      }
+    }
+
+    // The GIS script tag is async/defer, so it may not have finished
+    // loading yet when this effect runs — poll briefly rather than
+    // assuming window.google is already present.
+    let cancelled = false;
+    const start = Date.now();
+    const tryInit = () => {
+      if (cancelled) return;
+      if (window.google?.accounts?.id && googleButtonRef.current) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredential,
+        });
+        window.google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: "outline",
+          size: "large",
+          width: 312,
+        });
+        return;
+      }
+      if (Date.now() - start < 5000) {
+        setTimeout(tryInit, 100);
+      }
+    };
+    tryInit();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onSuccess]);
+
   return (
     <div style={page}>
       <div style={glowTop} />
@@ -40,6 +110,17 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
         <p style={eyebrow}>Senus PLC</p>
         <h1 style={title}>Board Report</h1>
         <p style={subtitle}>Sign in to view the board report.</p>
+
+        {GOOGLE_CLIENT_ID && (
+          <>
+            <div ref={googleButtonRef} style={googleButtonWrapper} />
+            <div style={divider}>
+              <span style={dividerLine} />
+              <span style={dividerText}>or</span>
+              <span style={dividerLine} />
+            </div>
+          </>
+        )}
 
         <label style={label}>
           Username
@@ -227,6 +308,32 @@ const logoMark: React.CSSProperties = {
   fontWeight: 600,
   fontSize: "var(--text-lg)",
   marginBottom: "var(--space-4)",
+};
+
+const googleButtonWrapper: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  marginBottom: "var(--space-4)",
+};
+
+const divider: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "var(--space-2)",
+  margin: "0 0 var(--space-4) 0",
+};
+
+const dividerLine: React.CSSProperties = {
+  flex: 1,
+  height: 1,
+  background: "var(--color-grey-line)",
+};
+
+const dividerText: React.CSSProperties = {
+  fontSize: "var(--text-xs)",
+  color: "var(--color-grey)",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
 };
 
 const eyebrow: React.CSSProperties = {

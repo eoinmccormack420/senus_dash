@@ -24,6 +24,18 @@ load_dotenv(BASE_DIR / ".env")
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
+# Google Sign-In (see board/views.py:GoogleLoginView). GOOGLE_ALLOWED_EMAILS
+# is a hard allowlist — a verified Google ID token alone is not enough to
+# log in, the email must also be in this list, since this app serves
+# unreleased financial data to a small fixed set of reviewers rather than
+# the public.
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
+GOOGLE_ALLOWED_EMAILS = {
+    e.strip().lower()
+    for e in os.environ.get("GOOGLE_ALLOWED_EMAILS", "").split(",")
+    if e.strip()
+}
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 

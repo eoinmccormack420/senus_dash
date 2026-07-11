@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
 
 # Build now outputs to ../assiduous_dash/frontend_dist (see
 # vite.config.ts) instead of dist/ here — Railway's build for the

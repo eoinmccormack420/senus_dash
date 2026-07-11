@@ -25,6 +25,11 @@
   /* Sparkline / chart secondary accent — used for the lighter blue
      seen in Assiduous's stacked/dual-tone bars */
   --color-accent-soft: #8FA8F5;
+  /* Negative-hue sibling to --color-accent-soft — a lighter rust for
+     differentiating stacked chart segments (e.g. contingent
+     consideration vs. current creditors) without introducing an
+     unrelated hue */
+  --color-rust-accent: #EB7A70;
 
   /* Type — Fraunces reserved for hero KPI numbers only now.
      Section headers, labels, and body all move to the grotesk. */

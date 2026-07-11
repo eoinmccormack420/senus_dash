@@ -25,6 +25,7 @@ import { boardApi, type PeriodDetail, num, formatEUR, formatPct } from "../api/c
 import type { BarShapeProps } from "recharts";
 import { AIInsightCard } from "../components/AIInsightCard";
 import { Skeleton } from "../components/Skeleton";
+import { chartCard, axisTick, tooltipStyle, chartColors } from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail;
@@ -95,69 +96,66 @@ export function ProfitabilitySection({ detail }: Props) {
         {trendLoading ? (
           <Skeleton height={280} radius="var(--radius-md)" />
         ) : (
-          <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-              <CartesianGrid stroke="var(--color-grey-line)" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fontFamily: "Inter, sans-serif", fontSize: 12, fill: "#8A8579" }}
-                axisLine={{ stroke: "var(--color-grey-line)" }}
-                tickLine={false}
-              />
-              <YAxis
-                yAxisId="ebitda"
-                tick={{ fontFamily: "Inter, sans-serif", fontSize: 12, fill: "#8A8579" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
-              />
-              <YAxis
-                yAxisId="margin"
-                orientation="right"
-                tick={{ fontFamily: "Inter, sans-serif", fontSize: 12, fill: "#8A8579" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `${v}%`}
-              />
-              <Tooltip
-                formatter={(value, name) =>
-                  name === "EBITDA" ? formatEUR(Number(value)) : formatPct(Number(value))
-                }
-                contentStyle={{
-                  fontFamily: "Inter, sans-serif",
-                  fontSize: 13,
-                  border: "1px solid #E3E0D8",
-                  borderRadius: 4,
-                }}
-              />
-              <ReferenceLine yAxisId="ebitda" y={0} stroke="var(--color-grey-line)" />
-              <Bar
-                yAxisId="ebitda"
-                dataKey="ebitda"
-                name="EBITDA"
-                radius={[2, 2, 0, 0]}
-                barSize={36}
-                // Negative EBITDA bars render in rust, positive in forest —
-                // makes the loss-narrowing trend readable at a glance
-                fill="#2B4F45"
-                shape={(props: BarShapeProps) => {
-                  const { x, y, width, height, value } = props;
-                  const color = Number(value) < 0 ? "#B5462F" : "#2B4F45";
-                  return <rect x={x} y={y} width={width} height={height} fill={color} rx={2} />;
-                }}
-              />
-              <Line
-                yAxisId="margin"
-                type="monotone"
-                dataKey="operatingMarginPct"
-                name="Operating Margin %"
-                stroke="#8A8579"
-                strokeWidth={2}
-                strokeDasharray="4 3"
-                dot={{ r: 3 }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <div style={chartCard}>
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={axisTick}
+                  axisLine={{ stroke: chartColors.gridLine }}
+                  tickLine={false}
+                />
+                <YAxis
+                  yAxisId="ebitda"
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
+                />
+                <YAxis
+                  yAxisId="margin"
+                  orientation="right"
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `${v}%`}
+                />
+                <Tooltip
+                  formatter={(value, name) =>
+                    name === "EBITDA" ? formatEUR(Number(value)) : formatPct(Number(value))
+                  }
+                  contentStyle={tooltipStyle}
+                />
+                <ReferenceLine yAxisId="ebitda" y={0} stroke={chartColors.gridLine} />
+                <Bar
+                  yAxisId="ebitda"
+                  dataKey="ebitda"
+                  name="EBITDA"
+                  radius={[6, 6, 0, 0]}
+                  barSize={36}
+                  // Negative EBITDA bars render in rust, positive in forest —
+                  // makes the loss-narrowing trend readable at a glance
+                  fill={chartColors.primary}
+                  shape={(props: BarShapeProps) => {
+                    const { x, y, width, height, value } = props;
+                    const color = Number(value) < 0 ? chartColors.negative : chartColors.primary;
+                    return <rect x={x} y={y} width={width} height={height} fill={color} rx={4} />;
+                  }}
+                />
+                <Line
+                  yAxisId="margin"
+                  type="monotone"
+                  dataKey="operatingMarginPct"
+                  name="Operating Margin %"
+                  stroke={chartColors.secondary}
+                  strokeWidth={2}
+                  strokeDasharray="4 3"
+                  dot={{ r: 3 }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
 
@@ -173,6 +171,11 @@ export function ProfitabilitySection({ detail }: Props) {
               muted
             />
             <BreakdownRow label="EBITDA" value={formatEUR(pl.ebitda ?? 0)} bold negative={num(pl.ebitda) < 0} />
+            <BreakdownRow
+              label="EBITDA Margin"
+              value={formatPct(pl.ebitda_margin_pct ?? undefined)}
+              negative={(pl.ebitda_margin_pct ?? 0) < 0}
+            />
             <BreakdownRow
               label="Operating Loss"
               value={formatEUR(pl.operating_loss)}

@@ -26,6 +26,7 @@ import {
 import { boardApi, type PeriodDetail, num, formatEUR } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
 import { Skeleton } from "../components/Skeleton";
+import { chartCard, axisTick, tooltipStyle, chartColors } from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail;
@@ -100,38 +101,32 @@ export function SolvencyLeverageSection({ detail }: Props) {
         {trendLoading ? (
           <Skeleton height={220} radius="var(--radius-md)" />
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-              <CartesianGrid stroke="var(--color-grey-line)" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fontFamily: "Inter, sans-serif", fontSize: 12, fill: "#8A8579" }}
-                axisLine={{ stroke: "var(--color-grey-line)" }}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontFamily: "Inter, sans-serif", fontSize: 12, fill: "#8A8579" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
-              />
-              <Tooltip
-                formatter={(value) => formatEUR(Number(value))}
-                contentStyle={{
-                  fontFamily: "Inter, sans-serif",
-                  fontSize: 13,
-                  border: "1px solid #E3E0D8",
-                  borderRadius: 4,
-                }}
-              />
-              <ReferenceLine y={0} stroke="var(--color-grey-line)" />
-              <Bar dataKey="netAssets" name="Net Assets" radius={[2, 2, 0, 0]} barSize={40}>
-                {trend.map((p, i) => (
-                  <Cell key={i} fill={p.netAssets < 0 ? "#B5462F" : "#2B4F45"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <div style={chartCard}>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={axisTick}
+                  axisLine={{ stroke: chartColors.gridLine }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={axisTick}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
+                />
+                <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} />
+                <ReferenceLine y={0} stroke={chartColors.gridLine} />
+                <Bar dataKey="netAssets" name="Net Assets" radius={[6, 6, 0, 0]} barSize={40}>
+                  {trend.map((p, i) => (
+                    <Cell key={i} fill={p.netAssets < 0 ? chartColors.negative : chartColors.primary} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
 
@@ -160,6 +155,11 @@ export function SolvencyLeverageSection({ detail }: Props) {
               value={gearingRatio !== null ? `${gearingRatio.toFixed(2)}x` : "n/a"}
               muted
             />
+            <BreakdownRow
+              label="Debt Service Coverage"
+              value={detail.dscr !== null ? `${detail.dscr.toFixed(2)}x` : "n/a — no debt service this period"}
+              muted
+            />
             <BreakdownRow label="Goodwill" value={formatEUR(bs.goodwill)} muted />
             <BreakdownRow
               label="Contingent Consideration"
@@ -171,7 +171,10 @@ export function SolvencyLeverageSection({ detail }: Props) {
           <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)", marginTop: "var(--space-3)" }}>
             Gearing ratio = total liabilities ÷ equity. Below 1.0x means
             equity exceeds debt; a rising ratio signals increasing reliance
-            on liabilities to fund the balance sheet.
+            on liabilities to fund the balance sheet. Debt Service Coverage
+            = EBITDA ÷ (interest + principal repaid) — "n/a" for a period
+            simply means no debt was actually being serviced in cash terms
+            that period, not a data gap.
           </p>
         </div>
       </div>
@@ -206,15 +209,15 @@ function CompositionBars({
   const base = totalAssets > 0 ? totalAssets : 1;
 
   const assetSegments = [
-    { label: "Fixed Assets", value: totalFixedAssets, color: "#2B4F45" },
-    { label: "Current Assets", value: totalCurrentAssets, color: "#6E9187" },
+    { label: "Fixed Assets", value: totalFixedAssets, color: "var(--color-forest)" },
+    { label: "Current Assets", value: totalCurrentAssets, color: "var(--color-accent-soft)" },
   ];
 
   const financeSegments = [
-    { label: "Equity", value: Math.max(equity, 0), color: "#2B4F45" },
-    { label: "Current Creditors", value: currentCreditors, color: "#B5462F" },
-    { label: "Contingent Consideration", value: contingentConsideration, color: "#D48A75" },
-    { label: "Long-term Debt", value: longTermDebt, color: "#8A8579" },
+    { label: "Equity", value: Math.max(equity, 0), color: "var(--color-forest)" },
+    { label: "Current Creditors", value: currentCreditors, color: "var(--color-rust)" },
+    { label: "Contingent Consideration", value: contingentConsideration, color: "var(--color-rust-accent)" },
+    { label: "Long-term Debt", value: longTermDebt, color: "var(--color-grey)" },
   ];
 
   return (

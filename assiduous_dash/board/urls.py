@@ -17,11 +17,12 @@ from django.urls import path
 
 from rest_framework.routers import DefaultRouter
 
-from .views import FinancialPeriodViewSet, LoginView
+from .views import FinancialPeriodViewSet, LoginView, GoogleLoginView
 
 router = DefaultRouter()
 router.register(r"periods", FinancialPeriodViewSet, basename="period")
 
 urlpatterns = router.urls + [
     path("auth/login/", LoginView.as_view(), name="login"),
+    path("auth/google/", GoogleLoginView.as_view(), name="google-login"),
 ]
