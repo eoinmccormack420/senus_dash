@@ -218,3 +218,13 @@ CSRF_COOKIE_SECURE = not DEBUG
 # loop. This tells Django to trust the standard X-Forwarded-Proto
 # header Railway's edge sets.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Django's SecurityMiddleware defaults this header to "same-origin",
+# which severs window.opener between our page and the popup Google
+# Identity Services opens for the account picker — the popup can no
+# longer postMessage the credential back once the user confirms, so
+# Google Sign-In hangs right after the account-confirmation step with
+# a failed request to accounts.google.com/gsi/transform in devtools.
+# "same-origin-allow-popups" keeps the isolation but permits windows we
+# open ourselves (like Google's) to communicate back.
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
