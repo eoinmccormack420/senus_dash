@@ -5,53 +5,59 @@
 // the login screen — no server-side session to invalidate beyond that
 // for this scope (DRF token auth is stateless per-token, not
 // session-based).
+//
+// Also owns the signed-in user's identity (currentUser), fetched via
+// /api/auth/me/ — the login response itself is never persisted, so
+// this is the only way to recover identity after a page reload, when
+// only the token survives in localStorage.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./Dashboard";
+import SettingsPage from "./SettingsPage";
+import GovernanceCenter from "./governance/GovernanceCenter";
 import { LoginScreen } from "./LoginScreen";
-import { getToken, clearToken } from "./api/client";
+import { getToken, clearToken, getCurrentUser, type CurrentUser } from "./api/client";
 
 function App() {
   const [authed, setAuthed] = useState<boolean>(() => getToken() !== null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  useEffect(() => {
+    if (!authed) return;
+    let cancelled = false;
+    getCurrentUser()
+      .then((u) => {
+        if (!cancelled) setCurrentUser(u);
+      })
+      .catch(() => {
+        // apiFetch already handles a 401 here by clearing the token and
+        // reloading back to the login screen — nothing further to do.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authed]);
+
+  function handleSignOut() {
+    clearToken();
+    setAuthed(false);
+    setCurrentUser(null);
+  }
 
   if (!authed) {
     return <LoginScreen onSuccess={() => setAuthed(true)} />;
   }
 
   return (
-    <div>
-      <div className="no-print" style={logoutBar}>
-        <button
-          onClick={() => {
-            clearToken();
-            setAuthed(false);
-          }}
-          style={logoutButton}
-        >
-          Sign out
-        </button>
-      </div>
-      <Dashboard />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/settings" element={<SettingsPage currentUser={currentUser} onSignOut={handleSignOut} />} />
+        <Route path="/governance" element={<GovernanceCenter currentUser={currentUser} onSignOut={handleSignOut} />} />
+        <Route path="/*" element={<Dashboard currentUser={currentUser} onSignOut={handleSignOut} />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
-
-const logoutBar: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "flex-end",
-  maxWidth: 1200,
-  margin: "0 auto",
-  padding: "var(--space-3) var(--space-4) 0",
-};
-
-const logoutButton: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  textDecoration: "underline",
-};
 
 export default App;

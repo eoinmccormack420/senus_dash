@@ -84,4 +84,5 @@ const body: React.CSSProperties = {
   lineHeight: 1.6,
   color: "var(--color-ink)",
   margin: 0,
+  overflowWrap: "break-word",
 };

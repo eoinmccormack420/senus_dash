@@ -26,6 +26,9 @@ from .models import (
     CashFlow,
     BusinessMetrics,
     AIInsight,
+    ExtractionAttempt,
+    AllowedGoogleEmail,
+    UserPreferences,
 )
 
 
@@ -146,6 +149,76 @@ class AIInsightSerializer(serializers.ModelSerializer):
             "model_used",
             "generated_at",
         ]
+
+
+class ExtractionAttemptPeriodSerializer(serializers.ModelSerializer):
+    """Minimal nested period reference for the Governance Center — just
+    enough to label a row and drive the period filter dropdown."""
+
+    class Meta:
+        model = FinancialPeriod
+        fields = ["id", "label"]
+
+
+class ExtractionAttemptListSerializer(serializers.ModelSerializer):
+    """Governance Center list view — omits cross_check_results (can be a
+    sizeable per-field dict) to keep the list payload small."""
+
+    period = ExtractionAttemptPeriodSerializer(read_only=True)
+
+    class Meta:
+        model = ExtractionAttempt
+        fields = [
+            "id",
+            "period",
+            "statement_kind",
+            "source_document",
+            "model_used",
+            "status",
+            "match_rate_pct",
+            "verified",
+            "created_at",
+        ]
+
+
+class ExtractionAttemptSerializer(serializers.ModelSerializer):
+    """Full detail, including cross_check_results — used for the
+    Governance Center's retrieve/approve/reject responses."""
+
+    period = ExtractionAttemptPeriodSerializer(read_only=True)
+
+    class Meta:
+        model = ExtractionAttempt
+        fields = [
+            "id",
+            "period",
+            "statement_kind",
+            "source_document",
+            "model_used",
+            "status",
+            "match_rate_pct",
+            "cross_check_results",
+            "verified",
+            "created_at",
+        ]
+
+
+class AllowedGoogleEmailSerializer(serializers.ModelSerializer):
+    added_by_username = serializers.SerializerMethodField()
+
+    def get_added_by_username(self, obj):
+        return obj.added_by.username if obj.added_by else None
+
+    class Meta:
+        model = AllowedGoogleEmail
+        fields = ["id", "email", "added_by_username", "created_at"]
+        read_only_fields = ["added_by_username", "created_at"]
+
+
+class UserPreferencesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserPreferences
+        fields = ["notify_on_new_insights"]
 
 
 class PeriodListSerializer(serializers.ModelSerializer):

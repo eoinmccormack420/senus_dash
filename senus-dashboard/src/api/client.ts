@@ -117,20 +117,42 @@ export interface PeriodDetail extends PeriodSummary {
   dscr: number | null;
 }
 
-async function apiFetch<T>(path: string): Promise<T> {
+function authHeaders(): Record<string, string> {
   const token = getToken();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: token ? { Authorization: `Token ${token}` } : {},
-  });
+  return token ? { Authorization: `Token ${token}` } : {};
+}
+
+async function handleApiResponse<T>(response: Response): Promise<T> {
   if (response.status === 401) {
     clearToken();
     window.location.reload(); // bounce back to the login screen
     throw new Error("Session expired — please log in again.");
   }
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail || `API request failed: ${response.status} ${response.statusText}`);
   }
+  if (response.status === 204) return undefined as T;
   return response.json();
+}
+
+async function apiFetch<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers: authHeaders() });
+  return handleApiResponse<T>(response);
+}
+
+// For POST/PATCH/DELETE — same auth/401 handling as apiFetch, plus a
+// JSON body when provided.
+async function apiMutate<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: {
+      ...authHeaders(),
+      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  return handleApiResponse<T>(response);
 }
 
 const TOKEN_KEY = "senus_board_token";
@@ -176,11 +198,97 @@ export async function googleLogin(credential: string): Promise<{ token: string; 
   return data;
 }
 
+export interface CurrentUser {
+  username: string;
+  email: string;
+  is_staff: boolean;
+}
+
+export const getCurrentUser = () => apiFetch<CurrentUser>("/auth/me/");
+
 export const boardApi = {
   listPeriods: () => apiFetch<PeriodSummary[]>("/periods/"),
   getPeriod: (id: number) => apiFetch<PeriodDetail>(`/periods/${id}/`),
   getLatestPeriod: () => apiFetch<PeriodDetail>("/periods/latest/"),
   getPeriodInsights: (id: number) => apiFetch<AIInsight[]>(`/periods/${id}/insights/`),
+};
+
+export interface AllowedEmail {
+  id: number;
+  email: string;
+  added_by_username: string | null;
+  created_at: string;
+}
+
+export interface UserPreferencesData {
+  notify_on_new_insights: boolean;
+}
+
+export interface RegenerateInsightsResult {
+  period: string;
+  results: { section: string; status: "generated" | "skipped" | "error"; detail: string }[];
+}
+
+export const adminApi = {
+  listAllowedEmails: () => apiFetch<AllowedEmail[]>("/admin/allowed-emails/"),
+  addAllowedEmail: (email: string) => apiMutate<AllowedEmail>("/admin/allowed-emails/", "POST", { email }),
+  removeAllowedEmail: (id: number) => apiMutate<void>(`/admin/allowed-emails/${id}/`, "DELETE"),
+  regenerateInsights: () => apiMutate<RegenerateInsightsResult>("/admin/regenerate-insights/", "POST"),
+};
+
+export const preferencesApi = {
+  get: () => apiFetch<UserPreferencesData>("/preferences/"),
+  update: (data: Partial<UserPreferencesData>) => apiMutate<UserPreferencesData>("/preferences/", "PATCH", data),
+};
+
+// --- AI Governance Center (admin only) ---
+
+export type ExtractionStatementKind = "pl_statement" | "balance_sheet" | "cash_flow" | "business_metrics";
+export type ExtractionStatus = "pending" | "schema_valid" | "schema_invalid" | "cross_check_pass" | "cross_check_fail" | "api_error";
+
+export interface ExtractionAttemptPeriod {
+  id: number;
+  label: string;
+}
+
+export interface ExtractionAttemptFieldResult {
+  extracted: number;
+  actual: number;
+  diff_pct: number;
+  match: boolean;
+}
+
+// Matches ExtractionAttemptListSerializer — no cross_check_results, for
+// the list view's payload size.
+export interface ExtractionAttemptSummary {
+  id: number;
+  period: ExtractionAttemptPeriod;
+  statement_kind: ExtractionStatementKind;
+  source_document: string;
+  model_used: string;
+  status: ExtractionStatus;
+  match_rate_pct: string | null; // DecimalField — serializes as a string, like PLStatement.revenue etc.
+  verified: boolean;
+  created_at: string;
+}
+
+// Matches ExtractionAttemptSerializer — full detail, used for
+// retrieve/approve/reject responses.
+export interface ExtractionAttemptDetail extends ExtractionAttemptSummary {
+  cross_check_results: Record<string, ExtractionAttemptFieldResult> | null;
+}
+
+export const governanceApi = {
+  listAttempts: (filters?: { period?: number; status?: ExtractionStatus }) => {
+    const params = new URLSearchParams();
+    if (filters?.period) params.set("period", String(filters.period));
+    if (filters?.status) params.set("status", filters.status);
+    const qs = params.toString();
+    return apiFetch<ExtractionAttemptSummary[]>(`/extraction-attempts/${qs ? `?${qs}` : ""}`);
+  },
+  getAttempt: (id: number) => apiFetch<ExtractionAttemptDetail>(`/extraction-attempts/${id}/`),
+  approveAttempt: (id: number) => apiMutate<ExtractionAttemptDetail>(`/extraction-attempts/${id}/approve/`, "POST"),
+  rejectAttempt: (id: number) => apiMutate<ExtractionAttemptDetail>(`/extraction-attempts/${id}/reject/`, "POST"),
 };
 
 // Convenience parsers — DRF DecimalFields serialize as strings, this

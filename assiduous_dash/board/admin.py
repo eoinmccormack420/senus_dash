@@ -12,6 +12,8 @@ admin.site.register(BalanceSheet)
 admin.site.register(CashFlow)
 admin.site.register(BusinessMetrics)
 admin.site.register(AIInsight)
+admin.site.register(AllowedGoogleEmail)
+admin.site.register(UserPreferences)
 
  
 @admin.register(ExtractionAttempt)

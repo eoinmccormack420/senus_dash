@@ -11,6 +11,7 @@ status rather than a silent bad write, is the part worth highlighting
 in your README as a "technical decision."
 """
 
+import hashlib
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
@@ -82,6 +83,15 @@ GROUND_TRUTH_MODELS = {
 # known-correct seeded value. 1% absolute relative difference allows
 # for benign rounding without masking a genuinely wrong extraction.
 MATCH_TOLERANCE_PCT = Decimal("1.0")
+
+# Statuses worth reusing from cache — a schema_invalid or api_error attempt
+# should be retried, not treated as a settled result.
+CACHEABLE_STATUSES = {"schema_valid", "cross_check_pass", "cross_check_fail"}
+
+
+def _hash_pdf(pdf_path: str) -> str:
+    with open(pdf_path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
 
 
 # Fields that must always be forced to a specific sign after extraction,
@@ -183,6 +193,7 @@ def run_extraction(
     statement_kind: str,
     period: FinancialPeriod,
     pdf_path: str,
+    force: bool = False,
 ) -> ExtractionAttempt:
     """
     Runs the full pipeline for one statement type / one period:
@@ -192,11 +203,35 @@ def run_extraction(
     only ever produces an ExtractionAttempt for human review. Promoting
     a verified attempt into the real model is a deliberate separate step
     (see promote_attempt below), not automatic.
+
+    Caching: if a previous attempt for this exact (period, statement_kind,
+    PDF content) already reached a cacheable status, that attempt is
+    returned as-is and Gemini is not called again — re-running the same
+    document while debugging the rest of the pipeline (schema tweaks,
+    sign normalization, etc.) shouldn't burn API quota. Pass force=True
+    to bypass this and re-extract anyway.
     """
+    content_hash = _hash_pdf(pdf_path)
+
+    if not force:
+        cached = (
+            ExtractionAttempt.objects.filter(
+                period=period,
+                statement_kind=statement_kind,
+                source_content_hash=content_hash,
+                status__in=CACHEABLE_STATUSES,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if cached is not None:
+            return cached
+
     attempt = ExtractionAttempt.objects.create(
         period=period,
         statement_kind=statement_kind,
         source_document=pdf_path,
+        source_content_hash=content_hash,
         status="pending",
     )
 

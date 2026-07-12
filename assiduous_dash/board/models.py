@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.db import models
 
 class FinancialPeriod(models.Model):
@@ -453,8 +454,13 @@ class ExtractionAttempt(models.Model):
     source_document = models.CharField(
         max_length=255, help_text="Filename or path of the source PDF"
     )
+    source_content_hash = models.CharField(
+        max_length=64, blank=True,
+        help_text="SHA-256 of the source PDF bytes, used to skip re-calling Gemini "
+                   "when the same document is re-run against the same period/kind",
+    )
     model_used = models.CharField(max_length=50, default="gemini-1.5-flash")
- 
+
     raw_response = models.JSONField(
         null=True, blank=True, help_text="Raw JSON returned by Gemini"
     )
@@ -480,3 +486,32 @@ class ExtractionAttempt(models.Model):
  
     def __str__(self):
         return f"{self.statement_kind} — {self.period.label} — {self.status}"
+
+
+class AllowedGoogleEmail(models.Model):
+    """
+    Admin-managed allowlist for Google Sign-In (see board/views.py's
+    GoogleLoginView). Replaces the GOOGLE_ALLOWED_EMAILS env var so the
+    admin can manage it from the app instead of editing Railway config.
+    """
+
+    email = models.EmailField(unique=True)
+    added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["email"]
+
+    def __str__(self):
+        return self.email
+
+
+class UserPreferences(models.Model):
+    """Per-user settings. notify_on_new_insights is persisted but not
+    yet wired to any actual email/Slack sending — UI-only for now."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="preferences")
+    notify_on_new_insights = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Preferences for {self.user.username}"

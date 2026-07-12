@@ -42,6 +42,12 @@ class Command(BaseCommand):
             action="store_true",
             help="Run extraction for all four statement types against this document",
         )
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Re-call Gemini even if a cached attempt already exists for this "
+                 "exact document/period/kind",
+        )
 
     def handle(self, *args, **options):
         try:
@@ -59,7 +65,7 @@ class Command(BaseCommand):
 
         for kind in kinds:
             self.stdout.write(f"Extracting {kind} for {period.label}...")
-            attempt = run_extraction(kind, period, options["pdf"])
+            attempt = run_extraction(kind, period, options["pdf"], force=options["force"])
             self._report(attempt)
 
     def _report(self, attempt: ExtractionAttempt):

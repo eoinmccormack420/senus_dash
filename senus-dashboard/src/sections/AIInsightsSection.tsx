@@ -95,6 +95,7 @@ const cardBody: React.CSSProperties = {
   lineHeight: 1.7,
   color: "var(--color-ink)",
   margin: 0,
+  overflowWrap: "break-word",
 };
 
 const cardTimestamp: React.CSSProperties = {

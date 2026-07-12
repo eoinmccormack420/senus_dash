@@ -95,6 +95,10 @@ export function ProfitabilitySection({ detail }: Props) {
         <h2 style={sectionTitle}>EBITDA &amp; operating margin trend</h2>
         {trendLoading ? (
           <Skeleton height={280} radius="var(--radius-md)" />
+        ) : trend.length < 2 ? (
+          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey)", fontSize: "var(--text-sm)" }}>
+            Not enough historical data yet to show a trend.
+          </div>
         ) : (
           <div style={chartCard}>
             <ResponsiveContainer width="100%" height={280}>

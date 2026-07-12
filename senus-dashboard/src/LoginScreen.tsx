@@ -257,6 +257,8 @@ const page: React.CSSProperties = {
   justifyContent: "center",
   background: "var(--color-paper)",
   overflow: "hidden",
+  padding: "var(--space-4)",
+  boxSizing: "border-box",
 };
 
 const glowTop: React.CSSProperties = {
@@ -288,6 +290,8 @@ const glowBottom: React.CSSProperties = {
 const panel: React.CSSProperties = {
   position: "relative",
   width: 360,
+  maxWidth: "100%",
+  boxSizing: "border-box",
   padding: "var(--space-6) var(--space-5)",
   display: "flex",
   flexDirection: "column",

@@ -12,9 +12,10 @@ import {
   Line,
   ResponsiveContainer,
 } from "recharts";
-import { boardApi, type PeriodDetail, type PeriodSummary, num, formatEUR, formatPct } from "./api/client";
+import { boardApi, type PeriodDetail, type PeriodSummary, type CurrentUser, num, formatEUR, formatPct } from "./api/client";
 import { Skeleton } from "./components/Skeleton";
 import { ProvenanceBadge } from "./components/ProvenanceBadge";
+import { AccountMenu } from "./components/AccountMenu";
 import { RevenueGrowthSection } from "./sections/RevenueGrowthSection";
 import { ProfitabilitySection } from "./sections/ProfitabilitySection";
 import { CashLiquiditySection } from "./sections/CashLiquiditySection";
@@ -40,7 +41,13 @@ interface HistoryPoint {
   cash: number;
 }
 
-export default function Dashboard() {
+export default function Dashboard({
+  currentUser,
+  onSignOut,
+}: {
+  currentUser: CurrentUser | null;
+  onSignOut: () => void;
+}) {
   const [periods, setPeriods] = useState<PeriodSummary[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<PeriodDetail | null>(null);
@@ -116,8 +123,11 @@ export default function Dashboard() {
           <p style={styles.eyebrow}>Senus PLC</p>
           <div style={styles.titleRow}>
             <h1 style={styles.title}>Board Report</h1>
-            {detail && !loading && <ProvenanceBadge provenance={detail.provenance} />}
           </div>
+          {/* Own line, not inline with the title — variable badge width otherwise pushed headerControls onto a new row via header's flexWrap. */}
+          {detail && !loading && (
+            <ProvenanceBadge provenance={detail.provenance} style={{ marginTop: "var(--space-2)" }} />
+          )}
         </div>
         <div className="no-print" style={styles.headerControls}>
           <PeriodTabs periods={periods} selectedId={selectedId} loading={loading} onSelect={setSelectedId} />
@@ -133,6 +143,7 @@ export default function Dashboard() {
             <DownloadIcon />
             Download Board Pack
           </button>
+          <AccountMenu user={currentUser} onSignOut={onSignOut} />
         </div>
       </header>
 
@@ -476,6 +487,9 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 4,
     borderRadius: "var(--radius-sm)",
     boxShadow: "var(--shadow-card)",
+    maxWidth: "100%",
+    minWidth: 0,
+    overflowX: "auto",
   },
   periodTab: {
     fontFamily: "var(--font-body)",
@@ -487,6 +501,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "transparent",
     borderRadius: 6,
     cursor: "pointer",
+    flexShrink: 0,
     position: "relative",
     display: "flex",
     alignItems: "center",
