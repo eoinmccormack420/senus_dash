@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { adminApi, type AllowedEmail } from "../api/client";
+import { Skeleton } from "../components/Skeleton";
 
 export function SignInAccessSection({ currentUserEmail }: { currentUserEmail: string }) {
   const [emails, setEmails] = useState<AllowedEmail[]>([]);
@@ -59,7 +60,11 @@ export function SignInAccessSection({ currentUserEmail }: { currentUserEmail: st
         editing Railway environment variables.
       </p>
       {loading ? (
-        <p style={caption}>Loading…</p>
+        <div>
+          <Skeleton height={18} style={{ marginBottom: "var(--space-2)" }} />
+          <Skeleton height={18} style={{ marginBottom: "var(--space-2)" }} />
+          <Skeleton height={18} />
+        </div>
       ) : (
         <ul style={emailList}>
           {emails.map((e) => (

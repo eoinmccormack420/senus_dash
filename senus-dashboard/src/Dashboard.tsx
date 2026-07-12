@@ -55,6 +55,11 @@ export default function Dashboard({
   const [activeSection, setActiveSection] = useState<string>(SECTIONS[0].key);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Distinct from `error` — specifically "the initial periods fetch
+  // never got a response at all", which gets a plain-language message
+  // instead of a raw error string (which is often just "Failed to
+  // fetch" and unhelpful to a non-technical board reviewer).
+  const [serverUnreachable, setServerUnreachable] = useState(false);
 
   useEffect(() => {
     boardApi
@@ -76,7 +81,7 @@ export default function Dashboard({
           }))
         );
       })
-      .catch((err) => setError(err.message));
+      .catch(() => setServerUnreachable(true));
   }, []);
 
   useEffect(() => {
@@ -104,6 +109,26 @@ export default function Dashboard({
       cancelled = true;
     };
   }, [selectedId]);
+
+  if (serverUnreachable) {
+    return (
+      <div style={styles.errorState}>
+        <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: "var(--text-lg)", color: "var(--color-ink)" }}>
+          Can't reach the server
+        </p>
+        <p style={{ color: "var(--color-grey)" }}>
+          The board report couldn't load. Check your connection and try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          style={{ ...styles.printButton, marginTop: "var(--space-4)" }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (error) {
     return (

@@ -19,6 +19,7 @@ import {
   type ExtractionStatus,
 } from "../api/client";
 import { AccountMenu } from "../components/AccountMenu";
+import { Skeleton } from "../components/Skeleton";
 
 const STATUS_OPTIONS: { value: ExtractionStatus; label: string }[] = [
   { value: "pending", label: "Pending" },
@@ -128,7 +129,11 @@ export default function GovernanceCenter({
 
       <div style={card}>
         {loading ? (
-          <p style={emptyText}>Loading…</p>
+          <div style={{ padding: "var(--space-4)" }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} height={20} style={{ marginBottom: "var(--space-3)" }} />
+            ))}
+          </div>
         ) : attempts.length === 0 ? (
           <p style={emptyText}>No extraction attempts match these filters.</p>
         ) : (
@@ -259,7 +264,7 @@ function AttemptRow({
         <tr>
           <td colSpan={7} style={detailCell}>
             {detailLoading ? (
-              <p style={emptyText}>Loading detail…</p>
+              <Skeleton height={100} radius="var(--radius-sm)" />
             ) : (
               <div>
                 {detail && (

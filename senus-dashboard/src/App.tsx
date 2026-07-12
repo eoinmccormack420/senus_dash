@@ -17,9 +17,10 @@ import Dashboard from "./Dashboard";
 import SettingsPage from "./SettingsPage";
 import GovernanceCenter from "./governance/GovernanceCenter";
 import { LoginScreen } from "./LoginScreen";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { getToken, clearToken, getCurrentUser, type CurrentUser } from "./api/client";
 
-function App() {
+function AppContent() {
   const [authed, setAuthed] = useState<boolean>(() => getToken() !== null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
@@ -57,6 +58,14 @@ function App() {
         <Route path="/*" element={<Dashboard currentUser={currentUser} onSignOut={handleSignOut} />} />
       </Routes>
     </BrowserRouter>
+  );
+}
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
   );
 }
 
