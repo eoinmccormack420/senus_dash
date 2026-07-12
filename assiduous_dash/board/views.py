@@ -13,6 +13,8 @@ Read-only on purpose — data enters the system via the seed command and
 the (future) Gemini extraction pipeline, not via the dashboard API.
 """
 
+import os
+
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -29,7 +31,13 @@ from django.contrib.auth.models import User
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 
-from .models import FinancialPeriod, AllowedGoogleEmail, UserPreferences, ExtractionAttempt
+from .models import (
+    FinancialPeriod,
+    AllowedGoogleEmail,
+    UserPreferences,
+    ExtractionAttempt,
+    NotificationSettings,
+)
 from .serializers import (
     PeriodListSerializer,
     PeriodDetailSerializer,
@@ -38,9 +46,14 @@ from .serializers import (
     UserPreferencesSerializer,
     ExtractionAttemptSerializer,
     ExtractionAttemptListSerializer,
+    NotificationSettingsSerializer,
 )
 from .extraction.commentary import generate_insights_for_period
 from .extraction.pipeline import promote_attempt
+from .extraction.email_notifications import notify_insight_subscribers, send_test_email
+from .extraction.notifications import send_test_slack_message
+from .extraction.teams_notifications import send_test_teams_message
+from .extraction.gmail_oauth import exchange_code_for_tokens, get_email_from_id_token, GmailOAuthError
 
 
 class FinancialPeriodViewSet(viewsets.ReadOnlyModelViewSet):
@@ -197,15 +210,144 @@ class RegenerateInsightsView(APIView):
         if period is None:
             return Response({"detail": "No financial periods have been seeded yet."}, status=404)
         results = generate_insights_for_period(period)
+        notify_insight_subscribers(period, results)
         return Response({"period": period.label, "results": results})
+
+
+class NotificationStatusView(APIView):
+    """
+    GET   -> which outbound notification channels are currently active
+             (slack/teams/email booleans), plus the admin-configured
+             Slack/Teams webhook URLs and SMTP settings (empty/false
+             where only an env var is providing it — that case can't be
+             edited here, only on the deployment platform). smtp_password
+             is write_only on the serializer, so it's never echoed back —
+             only smtp_password_set (bool) says whether one is stored.
+    PATCH { "slack_webhook_url": "...", "teams_webhook_url": "...",
+            "smtp_host": "...", "smtp_port": 587, "smtp_username": "...",
+            "smtp_password": "...", "smtp_use_tls": true, "from_email": "..." }
+             -> sets or clears (pass "") any of these fields, so wiring
+             up Slack/Teams/Email no longer requires editing Railway
+             env vars — mirrors AllowedGoogleEmail's role for
+             GOOGLE_ALLOWED_EMAILS. Admin only.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, *args, **kwargs):
+        return Response(self._payload(NotificationSettings.get_solo()))
+
+    def patch(self, request, *args, **kwargs):
+        settings_row = NotificationSettings.get_solo()
+        serializer = NotificationSettingsSerializer(settings_row, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(self._payload(settings_row))
+
+    @staticmethod
+    def _payload(settings_row: NotificationSettings) -> dict:
+        email_active = bool(settings_row.gmail_refresh_token) or bool(settings_row.smtp_host) or (
+            settings.EMAIL_BACKEND != "django.core.mail.backends.console.EmailBackend"
+        )
+        return {
+            "slack": bool(settings_row.slack_webhook_url or os.environ.get("SLACK_WEBHOOK_URL")),
+            "teams": bool(settings_row.teams_webhook_url or os.environ.get("TEAMS_WEBHOOK_URL")),
+            "email": email_active,
+            "slack_webhook_url": settings_row.slack_webhook_url,
+            "teams_webhook_url": settings_row.teams_webhook_url,
+            "smtp_host": settings_row.smtp_host,
+            "smtp_port": settings_row.smtp_port,
+            "smtp_username": settings_row.smtp_username,
+            "smtp_password_set": bool(settings_row.smtp_password),
+            "smtp_use_tls": settings_row.smtp_use_tls,
+            "from_email": settings_row.from_email,
+            "gmail_connected_email": settings_row.gmail_connected_email,
+        }
+
+
+class TestSlackNotificationView(APIView):
+    """POST -> sends a test message to the configured Slack webhook, admin only. Returns {"success": bool}."""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        return Response({"success": send_test_slack_message()})
+
+
+class TestTeamsNotificationView(APIView):
+    """POST -> sends a test Adaptive Card to the configured Teams webhook, admin only. Returns {"success": bool}."""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        return Response({"success": send_test_teams_message()})
+
+
+class TestEmailNotificationView(APIView):
+    """
+    POST -> sends a test email to the requesting admin's own address
+    (never an arbitrary address supplied by the client), admin only.
+    Returns {"success": bool, "sent_to": str}.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.email:
+            return Response({"detail": "Your account has no email address on file."}, status=400)
+        success = send_test_email(request.user.email)
+        return Response({"success": success, "sent_to": request.user.email})
+
+
+class ConnectGmailView(APIView):
+    """
+    POST { "code": "<authorization code from google.accounts.oauth2.initCodeClient>" }
+    -> exchanges the code for a refresh token (requires
+    GOOGLE_OAUTH_CLIENT_SECRET) and stores it on NotificationSettings,
+    so outbound notification emails send via the Gmail API as this
+    Google account instead of needing SMTP credentials. Admin only.
+    Returns the same payload as NotificationStatusView.GET.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        code = request.data.get("code")
+        if not code:
+            return Response({"detail": "Missing code."}, status=400)
+
+        try:
+            tokens = exchange_code_for_tokens(code)
+            refresh_token = tokens.get("refresh_token")
+            if not refresh_token:
+                return Response(
+                    {"detail": "Google didn't return a refresh token. Try disconnecting and reconnecting."},
+                    status=400,
+                )
+            email = get_email_from_id_token(tokens["id_token"])
+        except GmailOAuthError as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        settings_row = NotificationSettings.get_solo()
+        settings_row.gmail_refresh_token = refresh_token
+        settings_row.gmail_connected_email = email
+        settings_row.save()
+        return Response(NotificationStatusView._payload(settings_row))
+
+
+class DisconnectGmailView(APIView):
+    """POST -> clears the connected Gmail account, admin only. Returns the same payload as NotificationStatusView.GET."""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        settings_row = NotificationSettings.get_solo()
+        settings_row.gmail_refresh_token = ""
+        settings_row.gmail_connected_email = ""
+        settings_row.save()
+        return Response(NotificationStatusView._payload(settings_row))
 
 
 class UserPreferencesView(APIView):
     """
     GET/PATCH { "notify_on_new_insights": bool } — every signed-in user
-    manages their own preferences, no admin gate. Note: this only
-    persists the preference for now, nothing actually sends a
-    notification yet (see SettingsModal.tsx caption).
+    manages their own preferences, no admin gate. Subscribers get a
+    summary email when RegenerateInsightsView produces new commentary
+    (see extraction/email_notifications.py).
     """
     def get(self, request, *args, **kwargs):
         prefs, _created = UserPreferences.objects.get_or_create(user=request.user)

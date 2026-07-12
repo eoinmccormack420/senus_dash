@@ -29,6 +29,7 @@ from .models import (
     ExtractionAttempt,
     AllowedGoogleEmail,
     UserPreferences,
+    NotificationSettings,
 )
 
 
@@ -219,6 +220,33 @@ class UserPreferencesSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserPreferences
         fields = ["notify_on_new_insights"]
+
+
+class NotificationSettingsSerializer(serializers.ModelSerializer):
+    # smtp_password is a real credential, unlike the webhook URLs and
+    # the rest of the SMTP fields — write_only so a GET never echoes it
+    # back; smtp_password_set tells the UI whether one is stored at all.
+    smtp_password_set = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NotificationSettings
+        fields = [
+            "slack_webhook_url",
+            "teams_webhook_url",
+            "smtp_host",
+            "smtp_port",
+            "smtp_username",
+            "smtp_password",
+            "smtp_password_set",
+            "smtp_use_tls",
+            "from_email",
+            "updated_at",
+        ]
+        read_only_fields = ["updated_at"]
+        extra_kwargs = {"smtp_password": {"write_only": True}}
+
+    def get_smtp_password_set(self, obj) -> bool:
+        return bool(obj.smtp_password)
 
 
 class PeriodListSerializer(serializers.ModelSerializer):

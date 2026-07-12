@@ -50,6 +50,21 @@ interface BridgeStep {
   kind: "total" | "positive" | "negative";
 }
 
+interface Bridge {
+  steps: BridgeStep[];
+  // Recharts' stacked BarChart auto-separates positive and negative
+  // values into separate per-datapoint stacks, which breaks the
+  // "invisible base + visible value" waterfall trick as soon as `base`
+  // needs to go negative (common here — a large operating loss can push
+  // an intermediate running cash total well below zero even when
+  // opening/closing cash are both positive). Every base/value below is
+  // shifted up by `offset` so nothing handed to Recharts is ever
+  // negative; the YAxis tickFormatter subtracts `offset` back out for
+  // display. Pure vertical translation — the rendered bars land in
+  // exactly the same relative positions either way.
+  offset: number;
+}
+
 export function CashLiquiditySection({ detail }: Props) {
   const [trend, setTrend] = useState<CashTrendPoint[]>([]);
   const [trendLoading, setTrendLoading] = useState(true);
@@ -148,7 +163,7 @@ export function CashLiquiditySection({ detail }: Props) {
           <h2 style={sectionTitle}>{detail.label} cash bridge</h2>
           <div style={chartCard}>
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={bridge} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+              <BarChart data={bridge.steps} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
                 <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
                 <XAxis
                   dataKey="label"
@@ -160,7 +175,7 @@ export function CashLiquiditySection({ detail }: Props) {
                   tick={axisTick}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => `€${((v - bridge.offset) / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
                   formatter={(_value, _name, item) =>
@@ -170,7 +185,7 @@ export function CashLiquiditySection({ detail }: Props) {
                 />
                 <Bar dataKey="base" stackId="bridge" fill="transparent" isAnimationActive={false} />
                 <Bar dataKey="value" stackId="bridge" radius={[6, 6, 6, 6]}>
-                  {bridge.map((step, i) => (
+                  {bridge.steps.map((step, i) => (
                     <Cell
                       key={i}
                       fill={
@@ -235,7 +250,7 @@ export function CashLiquiditySection({ detail }: Props) {
           <h2 style={sectionTitle}>EBITDA to Free Cash Flow bridge</h2>
           <div style={chartCard}>
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={ebitdaBridge} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+              <BarChart data={ebitdaBridge.steps} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
                 <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
                 <XAxis
                   dataKey="label"
@@ -247,9 +262,9 @@ export function CashLiquiditySection({ detail }: Props) {
                   tick={axisTick}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => `€${((v - ebitdaBridge.offset) / 1000).toFixed(0)}k`}
                 />
-                <ReferenceLine y={0} stroke={chartColors.gridLine} />
+                <ReferenceLine y={ebitdaBridge.offset} stroke={chartColors.gridLine} />
                 <Tooltip
                   formatter={(_value, _name, item) =>
                     formatEUR((item.payload as BridgeStep).displayValue)
@@ -258,7 +273,7 @@ export function CashLiquiditySection({ detail }: Props) {
                 />
                 <Bar dataKey="base" stackId="ebitda-bridge" fill="transparent" isAnimationActive={false} />
                 <Bar dataKey="value" stackId="ebitda-bridge" radius={[6, 6, 6, 6]}>
-                  {ebitdaBridge.map((step, i) => (
+                  {ebitdaBridge.steps.map((step, i) => (
                     <Cell
                       key={i}
                       fill={
@@ -292,7 +307,7 @@ export function CashLiquiditySection({ detail }: Props) {
 function buildEbitdaBridge(
   pl: NonNullable<PeriodDetail["pl_statement"]>,
   cf: NonNullable<PeriodDetail["cash_flow"]>
-): BridgeStep[] {
+): Bridge {
   const ebitda = num(pl.ebitda);
   const interest = -Math.abs(num(pl.interest_expense));
   const tax = -Math.abs(num(pl.tax_expense));
@@ -309,26 +324,32 @@ function buildEbitdaBridge(
   const investing = num(cf.net_investing_cash);
   const afterInvesting = afterOther + investing; // = free_cash_flow, by construction
 
+  const runningTotals = [0, ebitda, afterInterest, afterTax, afterWorkingCapital, afterOther, afterInvesting];
+  const offset = -Math.min(0, ...runningTotals);
+
   const step = (from: number, to: number, label: string): BridgeStep => ({
     label,
-    base: Math.min(from, to),
+    base: Math.min(from, to) + offset,
     value: Math.abs(to - from),
     displayValue: to - from,
     kind: to - from >= 0 ? "positive" : "negative",
   });
 
-  return [
-    { ...step(0, ebitda, "EBITDA"), kind: "total" },
-    step(ebitda, afterInterest, "Interest"),
-    step(afterInterest, afterTax, "Tax"),
-    step(afterTax, afterWorkingCapital, "Working Capital"),
-    step(afterWorkingCapital, afterOther, "Other Adj."),
-    step(afterOther, afterInvesting, "Investing"),
-    { ...step(0, afterInvesting, "Free Cash Flow"), kind: "total" },
-  ];
+  return {
+    offset,
+    steps: [
+      { ...step(0, ebitda, "EBITDA"), kind: "total" },
+      step(ebitda, afterInterest, "Interest"),
+      step(afterInterest, afterTax, "Tax"),
+      step(afterTax, afterWorkingCapital, "Working Capital"),
+      step(afterWorkingCapital, afterOther, "Other Adj."),
+      step(afterOther, afterInvesting, "Investing"),
+      { ...step(0, afterInvesting, "Free Cash Flow"), kind: "total" },
+    ],
+  };
 }
 
-function buildBridge(cf: NonNullable<PeriodDetail["cash_flow"]>): BridgeStep[] {
+function buildBridge(cf: NonNullable<PeriodDetail["cash_flow"]>): Bridge {
   const opening = num(cf.opening_cash);
   const operating = num(cf.net_operating_cash);
   const investing = num(cf.net_investing_cash);
@@ -342,21 +363,27 @@ function buildBridge(cf: NonNullable<PeriodDetail["cash_flow"]>): BridgeStep[] {
   // rounding vs. the sum of components.
   const afterFinancing = afterInvesting + financing;
 
+  const runningTotals = [0, opening, afterOperating, afterInvesting, afterFinancing, closing];
+  const offset = -Math.min(0, ...runningTotals);
+
   const step = (from: number, to: number, label: string): BridgeStep => ({
     label,
-    base: Math.min(from, to),
+    base: Math.min(from, to) + offset,
     value: Math.abs(to - from),
     displayValue: to - from,
     kind: to - from >= 0 ? "positive" : "negative",
   });
 
-  return [
-    { label: "Opening", base: 0, value: opening, displayValue: opening, kind: "total" },
-    step(opening, afterOperating, "Operating"),
-    step(afterOperating, afterInvesting, "Investing"),
-    step(afterInvesting, afterFinancing, "Financing"),
-    { label: "Closing", base: 0, value: closing, displayValue: closing, kind: "total" },
-  ];
+  return {
+    offset,
+    steps: [
+      { label: "Opening", base: offset, value: opening, displayValue: opening, kind: "total" },
+      step(opening, afterOperating, "Operating"),
+      step(afterOperating, afterInvesting, "Investing"),
+      step(afterInvesting, afterFinancing, "Financing"),
+      { label: "Closing", base: offset, value: closing, displayValue: closing, kind: "total" },
+    ],
+  };
 }
 
 function BreakdownRow({

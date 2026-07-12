@@ -26,6 +26,12 @@ from .views import (
     RegenerateInsightsView,
     UserPreferencesView,
     ExtractionAttemptViewSet,
+    NotificationStatusView,
+    TestSlackNotificationView,
+    TestTeamsNotificationView,
+    TestEmailNotificationView,
+    ConnectGmailView,
+    DisconnectGmailView,
 )
 
 router = DefaultRouter()
@@ -39,4 +45,10 @@ urlpatterns = router.urls + [
     path("auth/me/", MeView.as_view(), name="me"),
     path("admin/regenerate-insights/", RegenerateInsightsView.as_view(), name="regenerate-insights"),
     path("preferences/", UserPreferencesView.as_view(), name="preferences"),
+    path("notifications/status/", NotificationStatusView.as_view(), name="notifications-status"),
+    path("notifications/test-slack/", TestSlackNotificationView.as_view(), name="notifications-test-slack"),
+    path("notifications/test-teams/", TestTeamsNotificationView.as_view(), name="notifications-test-teams"),
+    path("notifications/test-email/", TestEmailNotificationView.as_view(), name="notifications-test-email"),
+    path("notifications/connect-gmail/", ConnectGmailView.as_view(), name="notifications-connect-gmail"),
+    path("notifications/disconnect-gmail/", DisconnectGmailView.as_view(), name="notifications-disconnect-gmail"),
 ]

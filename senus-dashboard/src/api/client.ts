@@ -241,6 +241,45 @@ export const preferencesApi = {
   update: (data: Partial<UserPreferencesData>) => apiMutate<UserPreferencesData>("/preferences/", "PATCH", data),
 };
 
+export interface NotificationStatus {
+  slack: boolean;
+  teams: boolean;
+  email: boolean;
+  // Empty string/false means the channel (if active) is being driven
+  // by a server env var, not something set from this UI.
+  slack_webhook_url: string;
+  teams_webhook_url: string;
+  smtp_host: string;
+  smtp_port: number | null;
+  smtp_username: string;
+  smtp_password_set: boolean; // never the password itself
+  smtp_use_tls: boolean;
+  from_email: string;
+  gmail_connected_email: string; // empty string means not connected
+}
+
+export interface NotificationSettingsUpdate {
+  slack_webhook_url?: string;
+  teams_webhook_url?: string;
+  smtp_host?: string;
+  smtp_port?: number | null;
+  smtp_username?: string;
+  smtp_password?: string;
+  smtp_use_tls?: boolean;
+  from_email?: string;
+}
+
+export const notificationsApi = {
+  getStatus: () => apiFetch<NotificationStatus>("/notifications/status/"),
+  updateSettings: (data: NotificationSettingsUpdate) =>
+    apiMutate<NotificationStatus>("/notifications/status/", "PATCH", data),
+  testSlack: () => apiMutate<{ success: boolean }>("/notifications/test-slack/", "POST"),
+  testTeams: () => apiMutate<{ success: boolean }>("/notifications/test-teams/", "POST"),
+  testEmail: () => apiMutate<{ success: boolean; sent_to: string }>("/notifications/test-email/", "POST"),
+  connectGmail: (code: string) => apiMutate<NotificationStatus>("/notifications/connect-gmail/", "POST", { code }),
+  disconnectGmail: () => apiMutate<NotificationStatus>("/notifications/disconnect-gmail/", "POST"),
+};
+
 // --- AI Governance Center (admin only) ---
 
 export type ExtractionStatementKind = "pl_statement" | "balance_sheet" | "cash_flow" | "business_metrics";

@@ -14,6 +14,7 @@ admin.site.register(BusinessMetrics)
 admin.site.register(AIInsight)
 admin.site.register(AllowedGoogleEmail)
 admin.site.register(UserPreferences)
+admin.site.register(NotificationSettings)
 
  
 @admin.register(ExtractionAttempt)

@@ -15,7 +15,6 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./Dashboard";
 import SettingsPage from "./SettingsPage";
-import GovernanceCenter from "./governance/GovernanceCenter";
 import { LoginScreen } from "./LoginScreen";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { getToken, clearToken, getCurrentUser, type CurrentUser } from "./api/client";
@@ -54,7 +53,6 @@ function AppContent() {
     <BrowserRouter>
       <Routes>
         <Route path="/settings" element={<SettingsPage currentUser={currentUser} onSignOut={handleSignOut} />} />
-        <Route path="/governance" element={<GovernanceCenter currentUser={currentUser} onSignOut={handleSignOut} />} />
         <Route path="/*" element={<Dashboard currentUser={currentUser} onSignOut={handleSignOut} />} />
       </Routes>
     </BrowserRouter>

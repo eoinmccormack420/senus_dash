@@ -99,6 +99,20 @@ Safe to re-run: already-processed files (tracked via `ExtractionAttempt.source_d
 
 ---
 
+## 5.5 "Connect Gmail" for notifications
+
+Settings > Notifications > Email defaults to a "Connect Gmail" button instead of asking for SMTP host/username/password. It's a separate OAuth authorization-code flow from Google Sign-In (`GoogleLoginView`), requesting the `gmail.send` scope so the app can send notification emails via the Gmail API as the connecting admin's own account (`board/extraction/gmail_oauth.py`).
+
+This reuses the existing `GOOGLE_OAUTH_CLIENT_ID`, but needs three things Google Sign-In didn't:
+
+1. **Enable the Gmail API** for the Google Cloud project (APIs & Services > Library) — likely not yet enabled since only the Drive API has been used so far.
+2. **Add the `gmail.send` scope** to the OAuth consent screen (APIs & Services > OAuth consent screen > Scopes). This is a "restricted" scope; that's fine while the app stays in Testing publishing status with a small list of test users (already the case for a board tool with a handful of reviewers) — no Google verification review needed.
+3. **Set `GOOGLE_OAUTH_CLIENT_SECRET`** — get it from the same OAuth 2.0 Client ID's page in Credentials (APIs & Services > Credentials) that already provides `GOOGLE_OAUTH_CLIENT_ID`, and add it as an env var.
+
+Without these, clicking "Connect Gmail" will fail with a clear error rather than silently doing nothing — falling back to "Use a different email provider" (Outlook/SendGrid/custom SMTP, or the `EMAIL_*` env vars) still works either way.
+
+---
+
 ## 6. Assumptions made
 
 - **HY2025 has no balance sheet** — the source document provided P&L and cash flow comparisons for HY2025 but not a standalone Dec-2024 balance sheet.
@@ -151,6 +165,10 @@ npm run dev
 | `GEMINI_API_KEY` | Extraction + commentary pipelines |
 | `GOOGLE_SERVICE_ACCOUNT_KEY_PATH` | Google Drive ingestion only |
 | `DRIVE_FOLDER_ID` | Google Drive ingestion only |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | "Connect Gmail" notifications only (§5.5) — Google Sign-In itself only needs `GOOGLE_OAUTH_CLIENT_ID` |
+| `SLACK_WEBHOOK_URL` | Optional fallback — posts a Slack message when an extraction attempt completes. Prefer setting this from Settings > Notifications in the app (admin only), which takes precedence over this env var; use the env var for deployments where you don't want it editable from the UI |
+| `TEAMS_WEBHOOK_URL` | Optional fallback — posts a Microsoft Teams Adaptive Card when an extraction attempt completes. Same DB-over-env precedence as `SLACK_WEBHOOK_URL` above |
+| `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | Optional fallback — defaults to Django's console backend (prints to the terminal). Prefer setting SMTP host/port/username/password/from-address from Settings > Notifications in the app (admin only), which takes precedence over these env vars |
 
 For local development, `SECRET_KEY` falls back to a hardcoded dev value and the database defaults to SQLite. In production (deployed on Railway, see above), `SECRET_KEY` and `DATABASE_URL` are read from the environment — Railway provisions a managed Postgres instance and injects `DATABASE_URL` automatically, which `settings.py` picks up via `dj_database_url` in place of the SQLite fallback.
 

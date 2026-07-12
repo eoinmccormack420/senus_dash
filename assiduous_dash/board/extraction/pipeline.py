@@ -20,6 +20,8 @@ from pydantic import ValidationError
 from .schemas import SCHEMA_REGISTRY
 from .pdf_utils import extract_text_and_tables, extract_relevant_section, has_extractable_text
 from .gemini_client import extract_statement, extract_statement_from_pdf
+from .notifications import notify_slack
+from .teams_notifications import notify_teams
 
 # Keywords used to locate the relevant section of the document for each
 # statement type, so Gemini gets a focused excerpt rather than the full
@@ -316,6 +318,8 @@ def run_extraction(
         )
 
     attempt.save()
+    notify_slack(attempt)
+    notify_teams(attempt)
     return attempt
 
 

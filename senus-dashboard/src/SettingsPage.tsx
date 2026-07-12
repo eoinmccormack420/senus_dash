@@ -13,15 +13,14 @@ import { AccountMenu } from "./components/AccountMenu";
 import { NotificationsSection } from "./settings/NotificationsSection";
 import { SignInAccessSection } from "./settings/SignInAccessSection";
 import { RegenerateInsightsSection } from "./settings/RegenerateInsightsSection";
+import { GovernanceSection } from "./settings/GovernanceSection";
 import "./styles/tokens.css";
 
-// Data Quality used to live here — superseded by the AI Governance
-// Center (src/governance/GovernanceCenter.tsx), which covers every
-// period (not just the latest) and adds approve/reject.
 const ALL_SECTIONS = [
   { key: "notifications", label: "Notifications", adminOnly: false },
   { key: "sign_in_access", label: "Sign-in access", adminOnly: true },
   { key: "regenerate_insights", label: "Regenerate insights", adminOnly: true },
+  { key: "governance", label: "AI Governance", adminOnly: true },
 ] as const;
 
 type SectionKey = (typeof ALL_SECTIONS)[number]["key"];
@@ -68,11 +67,12 @@ export default function SettingsPage({
         </nav>
 
         <main style={content}>
-          {active === "notifications" && <NotificationsSection />}
+          {active === "notifications" && <NotificationsSection isAdmin={currentUser.is_staff} />}
           {active === "sign_in_access" && currentUser.is_staff && (
             <SignInAccessSection currentUserEmail={currentUser.email} />
           )}
           {active === "regenerate_insights" && currentUser.is_staff && <RegenerateInsightsSection />}
+          {active === "governance" && currentUser.is_staff && <GovernanceSection />}
         </main>
       </div>
     </div>

@@ -63,19 +63,6 @@ export function AccountMenu({ user, onSignOut }: { user: CurrentUser | null; onS
             {showUsername && <p style={identitySecondary}>{user.username}</p>}
           </div>
           <div style={divider} />
-          {user.is_staff && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                navigate("/governance");
-              }}
-              style={menuItemButton}
-            >
-              AI Governance
-            </button>
-          )}
           <button
             type="button"
             role="menuitem"

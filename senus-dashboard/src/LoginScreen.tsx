@@ -11,29 +11,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { login, googleLogin } from "./api/client";
+// Window.google is typed ambiently in src/types/google-identity.d.ts (picked up automatically via tsconfig's "include"), shared with NotificationsSection.tsx.
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
-
-// Minimal shape of the bits of the Google Identity Services API we use —
-// loaded via the <script> tag in index.html, not an npm package.
-interface GoogleIdCredentialResponse {
-  credential: string;
-}
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string;
-            callback: (response: GoogleIdCredentialResponse) => void;
-          }) => void;
-          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
-        };
-      };
-    };
-  }
-}
 
 export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   const [username, setUsername] = useState("");
@@ -60,7 +40,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) return;
 
-    async function handleGoogleCredential(response: GoogleIdCredentialResponse) {
+    async function handleGoogleCredential(response: { credential: string }) {
       setError(null);
       try {
         await googleLogin(response.credential);

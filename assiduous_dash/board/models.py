@@ -507,11 +507,61 @@ class AllowedGoogleEmail(models.Model):
 
 
 class UserPreferences(models.Model):
-    """Per-user settings. notify_on_new_insights is persisted but not
-    yet wired to any actual email/Slack sending — UI-only for now."""
+    """Per-user settings. notify_on_new_insights gates whether this
+    user's email is included when RegenerateInsightsView notifies
+    subscribers (see board/extraction/email_notifications.py)."""
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="preferences")
     notify_on_new_insights = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Preferences for {self.user.username}"
+
+
+class NotificationSettings(models.Model):
+    """
+    Singleton row (always pk=1) for admin-configured Slack/Teams webhook
+    URLs and SMTP settings, set from Settings > Notifications instead
+    of requiring env var access on the deployment platform — the same
+    role AllowedGoogleEmail plays for GOOGLE_ALLOWED_EMAILS. A blank
+    field here falls back to the matching env var (SLACK_WEBHOOK_URL /
+    TEAMS_WEBHOOK_URL / EMAIL_BACKEND+friends — see
+    board/extraction/notifications.py, teams_notifications.py and
+    email_notifications.py), so existing env-var-only deployments keep
+    working unchanged.
+
+    smtp_password is a real credential, unlike the webhook URLs, so
+    NotificationSettingsSerializer marks it write_only — it's never
+    read back over the API once saved, only whether one is set.
+    """
+
+    slack_webhook_url = models.URLField(blank=True)
+    teams_webhook_url = models.URLField(blank=True)
+
+    smtp_host = models.CharField(max_length=255, blank=True)
+    smtp_port = models.PositiveIntegerField(null=True, blank=True)
+    smtp_username = models.CharField(max_length=255, blank=True)
+    smtp_password = models.CharField(max_length=255, blank=True)
+    smtp_use_tls = models.BooleanField(default=True)
+    from_email = models.CharField(max_length=255, blank=True)
+
+    # Set via the "Connect Gmail" flow (board/extraction/gmail_oauth.py,
+    # views.ConnectGmailView) rather than typed in directly — an admin
+    # authorizes Gmail API send access for their own Google account, and
+    # notifications get sent through the Gmail API using this refresh
+    # token instead of SMTP. Takes precedence over smtp_host when set.
+    # gmail_refresh_token is a credential like smtp_password — never
+    # read back over the API; gmail_connected_email is just the
+    # display label ("Connected as ...") and is safe to return.
+    gmail_connected_email = models.CharField(max_length=255, blank=True)
+    gmail_refresh_token = models.CharField(max_length=1024, blank=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def get_solo(cls) -> "NotificationSettings":
+        obj, _created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Notification settings"

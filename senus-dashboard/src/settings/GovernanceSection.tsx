@@ -1,24 +1,22 @@
-// src/governance/GovernanceCenter.tsx
+// src/settings/GovernanceSection.tsx
 //
 // AI Governance / verification center — replaces the need to use
-// Django admin to review and approve Gemini extraction attempts.
-// Admin-only (see App.tsx's route gate and AccountMenu.tsx's nav
-// item). Supersedes the old Settings > Data Quality tab, which only
-// covered the latest period and had no approve/reject.
+// Django admin to review and approve Gemini extraction attempts. Lives
+// under Settings (admin-only tab, gated by SettingsPage.tsx's
+// ALL_SECTIONS filter) rather than its own top-level route. Supersedes
+// the old Settings > Data Quality tab, which only covered the latest
+// period and had no approve/reject.
 
 import { useEffect, useState } from "react";
-import { Navigate, Link } from "react-router-dom";
 import {
   boardApi,
   governanceApi,
   num,
-  type CurrentUser,
   type PeriodSummary,
   type ExtractionAttemptSummary,
   type ExtractionAttemptDetail,
   type ExtractionStatus,
 } from "../api/client";
-import { AccountMenu } from "../components/AccountMenu";
 import { Skeleton } from "../components/Skeleton";
 
 const STATUS_OPTIONS: { value: ExtractionStatus; label: string }[] = [
@@ -49,13 +47,7 @@ function statusLabel(status: ExtractionStatus): string {
 
 const formatNumber = (value: number): string => value.toLocaleString("en-IE", { maximumFractionDigits: 2 });
 
-export default function GovernanceCenter({
-  currentUser,
-  onSignOut,
-}: {
-  currentUser: CurrentUser | null;
-  onSignOut: () => void;
-}) {
+export function GovernanceSection() {
   const [periods, setPeriods] = useState<PeriodSummary[]>([]);
   const [attempts, setAttempts] = useState<ExtractionAttemptSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,25 +78,13 @@ export default function GovernanceCenter({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodFilter, statusFilter]);
 
-  if (currentUser && !currentUser.is_staff) {
-    return <Navigate to="/" replace />;
-  }
-  if (!currentUser) return null;
-
   return (
-    <div style={page}>
-      <header style={header}>
-        <div>
-          <p style={eyebrow}>Senus PLC</p>
-          <div style={titleRow}>
-            <h1 style={title}>AI Governance</h1>
-            <Link to="/" style={backLink}>
-              ← Back to dashboard
-            </Link>
-          </div>
-        </div>
-        <AccountMenu user={currentUser} onSignOut={onSignOut} />
-      </header>
+    <div>
+      <h2 style={title}>AI Governance</h2>
+      <p style={caption}>
+        Review Gemini extraction attempts and approve/reject them — approving promotes the
+        extracted values into the live board data.
+      </p>
 
       <div style={filters}>
         <select value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value)} style={select}>
@@ -321,51 +301,18 @@ function AttemptRow({
   );
 }
 
-const page: React.CSSProperties = {
-  maxWidth: 1200,
-  margin: "0 auto",
-  padding: "var(--space-6) var(--space-4)",
-};
-
-const header: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-end",
-  flexWrap: "wrap",
-  gap: "var(--space-4)",
-  marginBottom: "var(--space-5)",
-};
-
-const eyebrow: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-xs)",
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  color: "var(--color-grey)",
-  margin: 0,
-  fontWeight: 600,
-};
-
-const titleRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "var(--space-3)",
-  flexWrap: "wrap",
-};
-
 const title: React.CSSProperties = {
   fontFamily: "var(--font-body)",
   fontWeight: 700,
-  fontSize: "var(--text-xl)",
+  fontSize: "var(--text-lg)",
   color: "var(--color-ink)",
-  margin: "var(--space-1) 0 0 0",
+  margin: "0 0 var(--space-2) 0",
 };
 
-const backLink: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-sm)",
+const caption: React.CSSProperties = {
+  fontSize: "var(--text-xs)",
   color: "var(--color-grey)",
-  textDecoration: "none",
+  margin: "0 0 var(--space-4) 0",
 };
 
 const filters: React.CSSProperties = {
@@ -380,7 +327,7 @@ const select: React.CSSProperties = {
   padding: "var(--space-2) var(--space-3)",
   border: "1px solid var(--color-grey-line)",
   borderRadius: "var(--radius-sm)",
-  background: "var(--color-paper-raised)",
+  background: "var(--color-paper)",
   color: "var(--color-ink)",
 };
 
@@ -391,9 +338,9 @@ const errorBanner: React.CSSProperties = {
 };
 
 const card: React.CSSProperties = {
-  background: "var(--color-paper-raised)",
+  background: "var(--color-paper)",
+  border: "1px solid var(--color-grey-line)",
   borderRadius: "var(--radius-md)",
-  boxShadow: "var(--shadow-card)",
   overflow: "hidden",
 };
 
@@ -456,7 +403,7 @@ const verifiedNo: React.CSSProperties = {
 
 const detailCell: React.CSSProperties = {
   padding: "var(--space-4)",
-  background: "var(--color-paper)",
+  background: "var(--color-paper-raised)",
   borderBottom: "1px solid var(--color-grey-line)",
 };
 
