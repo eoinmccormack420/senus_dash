@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from .schemas import SCHEMA_REGISTRY
 from .pdf_utils import extract_text_and_tables, extract_relevant_section, has_extractable_text
 from .gemini_client import extract_statement, extract_statement_from_pdf
+from .email_notifications import notify_extraction_email
 from .notifications import notify_slack
 from .teams_notifications import notify_teams
 
@@ -320,6 +321,7 @@ def run_extraction(
     attempt.save()
     notify_slack(attempt)
     notify_teams(attempt)
+    notify_extraction_email(attempt)
     return attempt
 
 

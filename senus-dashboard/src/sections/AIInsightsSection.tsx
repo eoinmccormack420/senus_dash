@@ -96,6 +96,7 @@ const cardBody: React.CSSProperties = {
   color: "var(--color-ink)",
   margin: 0,
   overflowWrap: "break-word",
+  whiteSpace: "pre-wrap", // preserves the "- " Key risks lines Gemini leads with
 };
 
 const cardTimestamp: React.CSSProperties = {

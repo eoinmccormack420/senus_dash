@@ -115,6 +115,36 @@ def notify_insight_subscribers(period, results) -> None:
         logger.exception("Email notification failed for period %s", period.pk)
 
 
+def notify_extraction_email(attempt) -> None:
+    """
+    Emails everyone with notify_on_new_insights=True a short summary of
+    a completed extraction attempt — the email counterpart to
+    notify_slack/notify_teams (see notifications.py, teams_notifications.py),
+    called from run_extraction() right after the attempt is saved. Reuses
+    the insight-subscriber list rather than a separate preference, since
+    both are "people who want board pipeline updates". Any failure is
+    logged and swallowed, never raised, matching the Slack/Teams contract.
+    """
+    subscribers = UserPreferences.objects.filter(
+        notify_on_new_insights=True, user__email__gt=""
+    ).select_related("user")
+    recipient_emails = [prefs.user.email for prefs in subscribers]
+    if not recipient_emails:
+        return
+
+    subject = f"Extraction {attempt.status}: {attempt.period.label} — {attempt.statement_kind}"
+    message = (
+        f"{attempt.period.label} / {attempt.statement_kind} -> {attempt.status}\n"
+        f"Match rate: {attempt.match_rate_pct}%\n\n"
+        "View it in the Senus board dashboard."
+    )
+
+    try:
+        _send_email(subject, message, recipient_emails)
+    except Exception:  # noqa: BLE001 — a notification failure must never break extraction
+        logger.exception("Email notification failed for ExtractionAttempt %s", attempt.pk)
+
+
 def send_test_email(to_email: str) -> bool:
     """
     Sends a test email to `to_email` (the admin clicking "Send test"),

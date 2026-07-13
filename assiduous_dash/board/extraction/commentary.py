@@ -18,6 +18,7 @@ will actually read.
 
 import hashlib
 import json
+import time
 from decimal import Decimal
 from typing import Optional
 
@@ -65,10 +66,18 @@ SECTION_INSTRUCTIONS = {
         "rather than fabricating a figure. 2-4 sentences."
     ),
     "outlook": (
-        "Write a brief board-level executive summary synthesising revenue, "
-        "profitability, cash, and solvency into a single forward-looking "
-        "paragraph. This is the first thing a board member reads before "
-        "the detailed sections. 3-5 sentences."
+        "Write a brief board-level executive summary. First, a \"Key "
+        "risks\" list (see the bullet exception below) flagging only "
+        "genuine concerns visible in the data — e.g. cash runway under "
+        "6 months, DSCR below 1, negative or worsening ROCE, rising "
+        "leverage, revenue decline. Omit the list entirely if nothing "
+        "genuinely warrants a flag rather than manufacturing one. Then "
+        "a forward-looking paragraph synthesising revenue, "
+        "profitability, cash, solvency, and business performance "
+        "(returns) into a single narrative — this is the first thing a "
+        "board member reads before the detailed sections. If board "
+        "notes are present in the data below, factor them into your "
+        "read of the period. Paragraph: 3-5 sentences."
     ),
 }
 
@@ -80,6 +89,19 @@ def build_commentary_prompt(
     prior: Optional[dict] = None,
 ) -> str:
     instruction = SECTION_INSTRUCTIONS[section]
+
+    # Only "outlook" (the board Executive Summary) leads with a Key
+    # risks list — every other section stays plain prose per the Rules
+    # below, so the exception is scoped to that one section rather than
+    # loosened globally.
+    bullet_exception = (
+        "\n- Exception to the no-bullets rule: the Key risks list may use "
+        "short bullet lines, each starting with \"- \" on its own line. "
+        "Everything after it (the narrative paragraph) must still be "
+        "plain prose."
+        if section == "outlook"
+        else ""
+    )
 
     current_str = "\n".join(f"  {k}: {v}" for k, v in current.items())
     prior_str = (
@@ -98,7 +120,7 @@ Rules:
 - Reference SPECIFIC figures from the data below, formatted as €X or
   X%. Do not invent figures not present in the data.
 - Do NOT use bullet points, headers, or markdown formatting — plain
-  prose paragraphs only.
+  prose paragraphs only.{bullet_exception}
 - Do NOT begin with a generic phrase like "In this period" — start
   directly with the substance.
 - If a figure indicates a genuine risk (e.g. cash runway under 6
@@ -120,10 +142,18 @@ def generate_commentary(
     period_label: str,
     current: dict,
     prior: Optional[dict] = None,
+    max_retries: int = 2,
 ) -> str:
     """
     Calls Gemini in plain-text mode (no JSON constraint needed here —
     the output is prose) and returns the generated commentary string.
+
+    Retries with backoff on failure — same reasoning as
+    gemini_client.extract_statement's retry, but with more attempts and
+    a longer wait, since the failure this most commonly guards against
+    is Gemini's transient "model is overloaded" 503 (unrelated to the
+    API key or quota), which tends to need more than a couple of
+    seconds to clear.
     """
     client = _get_client()
     current_clean = {k: _to_float(v) for k, v in current.items()}
@@ -131,12 +161,24 @@ def generate_commentary(
 
     prompt = build_commentary_prompt(section, period_label, current_clean, prior_clean)
 
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(temperature=0.4),
-    )
-    return response.text.strip()
+    last_error: Optional[Exception] = None
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.4),
+            )
+            return response.text.strip()
+        except Exception as exc:  # noqa: BLE001 - caught upstream in generate_insights_for_period
+            last_error = exc
+            if attempt < max_retries:
+                time.sleep(2 ** (attempt + 1))  # 2s, then 4s
+                continue
+            raise RuntimeError(
+                f"Gemini commentary generation failed for {section}/{period_label} "
+                f"after {max_retries + 1} attempt(s): {last_error}"
+            ) from last_error
 
 
 # --- Per-section summary builders + the generate-all-sections entry point ---
@@ -226,15 +268,42 @@ def _returns_summary(period) -> Optional[dict]:
 
 
 def _outlook_summary(period) -> dict:
+    """
+    Feeds the board Executive Summary — deliberately the richest
+    summary of the six: every other section builder covers one
+    statement, but this one also pulls in returns/business performance,
+    the cross-statement ratios that live on FinancialPeriod itself
+    (roce_pct, dscr, yoy_revenue_growth_pct — not owned by any single
+    statement model, so no other builder surfaces them), the extraction
+    provenance (was this period AI-extracted, and at what match rate,
+    so the summary can caveat itself accordingly), and any free-text
+    board notes — so the Key risks list and narrative can draw on the
+    full picture rather than just revenue/cash/solvency.
+    """
     summary = {}
     for label, fn in [
         ("revenue_growth", _pl_summary),
         ("cash_liquidity", _cash_summary),
         ("solvency_leverage", _solvency_summary),
+        ("returns", _returns_summary),
     ]:
         section_data = fn(period)
         if section_data:
             summary.update({f"{label}.{k}": v for k, v in section_data.items()})
+
+    for key in ["roce_pct", "dscr", "yoy_revenue_growth_pct"]:
+        value = getattr(period, key, None)
+        if value is not None:
+            summary[key] = value
+
+    provenance = period.provenance
+    if provenance["match_rate_pct"] is not None:
+        summary["data_provenance.match_rate_pct"] = provenance["match_rate_pct"]
+        summary["data_provenance.verified"] = provenance["verified"]
+
+    if period.notes:
+        summary["board_notes"] = period.notes
+
     return summary
 
 
