@@ -87,7 +87,7 @@ const regenerateButton: React.CSSProperties = {
   fontFamily: "var(--font-body)",
   fontWeight: 600,
   fontSize: "var(--text-sm)",
-  color: "#FFFFFF",
+  color: "var(--color-on-accent)",
   background: "var(--color-forest)",
   border: "none",
   borderRadius: "var(--radius-sm)",

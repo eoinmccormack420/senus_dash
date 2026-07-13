@@ -164,3 +164,25 @@ def send_test_email(to_email: str) -> bool:
     except Exception:  # noqa: BLE001
         logger.exception("Test email failed")
         return False
+
+
+def send_board_alert_email(period_label: str, lines: list[str]) -> bool:
+    """Email opted-in users the current board-alert digest."""
+    subscribers = UserPreferences.objects.filter(
+        notify_on_board_alerts=True, user__email__gt=""
+    ).select_related("user")
+    recipients = [prefs.user.email for prefs in subscribers]
+    if not recipients:
+        return False
+    try:
+        _send_email(
+            f"Board alerts require attention - {period_label}",
+            "The following board thresholds are currently breached:\n\n"
+            + "\n".join(f"- {line}" for line in lines)
+            + "\n\nView the Board Pulse for the full context.",
+            recipients,
+        )
+        return True
+    except Exception:  # noqa: BLE001
+        logger.exception("Board alert email failed for period %s", period_label)
+        return False

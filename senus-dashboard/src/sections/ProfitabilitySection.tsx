@@ -13,19 +13,35 @@ import { useEffect, useState } from "react";
 import {
   ComposedChart,
   Bar,
+  Cell,
+  LabelList,
+  Legend,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ReferenceLine,
-  ResponsiveContainer,
 } from "recharts";
 import { boardApi, type PeriodDetail, num, formatEUR, formatPct } from "../api/client";
-import type { BarShapeProps } from "recharts";
 import { AIInsightCard } from "../components/AIInsightCard";
+import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
 import { Skeleton } from "../components/Skeleton";
-import { chartCard, axisTick, tooltipStyle, chartColors } from "../styles/chartTheme";
+import {
+  barRadius,
+  chartCard,
+  chartColors,
+  chartMargin,
+  chartCursor,
+  formatCompactEURTick,
+  formatPercentTick,
+  gridProps,
+  legendProps,
+  selectedDot,
+  tooltipStyle,
+  xAxisProps,
+  yAxisProps,
+} from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail;
@@ -40,6 +56,7 @@ interface TrendPoint {
 export function ProfitabilitySection({ detail }: Props) {
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [trendLoading, setTrendLoading] = useState(true);
+  const selectedLabel = detail.label;
 
   useEffect(() => {
     let cancelled = false;
@@ -88,85 +105,129 @@ export function ProfitabilitySection({ detail }: Props) {
   const operatingLoss = num(pl.operating_loss);
   const operatingMarginPct = revenue !== 0 ? (operatingLoss / revenue) * 100 : 0;
 
+  const renderEbitdaLabel = ({ x = 0, y = 0, width = 0, height = 0, value }: any) => {
+    const formatted = formatCompactEURTick(Number(value));
+    const isNegative = Number(value) < 0;
+    const labelY = isNegative ? y + height + 18 : y - 8;
+    return (
+      <text
+        x={x + width / 2}
+        y={labelY}
+        fill={chartColors.secondary}
+        textAnchor="middle"
+        fontSize={12}
+        fontWeight={600}
+      >
+        {formatted}
+      </text>
+    );
+  };
+
   return (
     <div>
       <AIInsightCard insight={detail.ai_insights.find((i) => i.section === "profitability")} />
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h2 style={sectionTitle}>EBITDA &amp; operating margin trend</h2>
         {trendLoading ? (
-          <Skeleton height={280} radius="var(--radius-md)" />
+          <Skeleton height={300} radius="var(--radius-md)" />
         ) : trend.length < 2 ? (
           <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey)", fontSize: "var(--text-sm)" }}>
             Not enough historical data yet to show a trend.
           </div>
         ) : (
-          <div style={chartCard}>
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
+          <div className="print-avoid-break" style={chartCard} key={detail.id}>
+            <ResponsiveChartContainer height={300}>
+              <ComposedChart data={trend} margin={chartMargin.dualAxis}>
+                <defs>
+                  <linearGradient id="ebitdaPositiveFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.primaryBright} />
+                    <stop offset="100%" stopColor={chartColors.primaryDeep} />
+                  </linearGradient>
+                  <linearGradient id="ebitdaNegativeFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.negativeBright} />
+                    <stop offset="100%" stopColor={chartColors.negative} />
+                  </linearGradient>
+                  <linearGradient id="operatingMarginStroke" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#111827" />
+                    <stop offset="100%" stopColor="#64748B" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid {...gridProps} />
+                <Legend {...legendProps} />
                 <XAxis
                   dataKey="label"
-                  tick={axisTick}
-                  axisLine={{ stroke: chartColors.gridLine }}
-                  tickLine={false}
+                  {...xAxisProps}
+                  height={40}
+                  interval={0}
                 />
                 <YAxis
                   yAxisId="ebitda"
-                  tick={axisTick}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
+                  {...yAxisProps}
+                  tickFormatter={(v) => formatCompactEURTick(Number(v))}
+                  domain={["auto", "auto"]}
                 />
                 <YAxis
                   yAxisId="margin"
                   orientation="right"
-                  tick={axisTick}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `${v}%`}
+                  {...yAxisProps}
+                  tickFormatter={(v) => formatPercentTick(Number(v), 1)}
+                  domain={["auto", "auto"]}
                 />
                 <Tooltip
                   formatter={(value, name) =>
                     name === "EBITDA" ? formatEUR(Number(value)) : formatPct(Number(value))
                   }
                   contentStyle={tooltipStyle}
+                  cursor={chartCursor}
                 />
-                <ReferenceLine yAxisId="ebitda" y={0} stroke={chartColors.gridLine} />
+                <ReferenceLine x={selectedLabel} stroke={chartColors.selectedGuide} strokeWidth={2} />
+                <ReferenceLine yAxisId="ebitda" y={0} stroke={chartColors.gridLine} strokeWidth={1.5} />
                 <Bar
                   yAxisId="ebitda"
                   dataKey="ebitda"
                   name="EBITDA"
-                  radius={[6, 6, 0, 0]}
-                  barSize={36}
-                  // Negative EBITDA bars render in rust, positive in forest —
-                  // makes the loss-narrowing trend readable at a glance
-                  fill={chartColors.primary}
-                  shape={(props: BarShapeProps) => {
-                    const { x, y, width, height, value } = props;
-                    const color = Number(value) < 0 ? chartColors.negative : chartColors.primary;
-                    return <rect x={x} y={y} width={width} height={height} fill={color} rx={4} />;
-                  }}
-                />
+                  radius={barRadius.vertical}
+                  barSize={46}
+                  background={{ fill: "rgba(52, 87, 232, 0.045)", radius: 12 }}
+                  isAnimationActive={false}
+                >
+                  {trend.map((point) => (
+                    <Cell
+                      key={point.label}
+                      fill={Number(point.ebitda) < 0 ? "url(#ebitdaNegativeFill)" : "url(#ebitdaPositiveFill)"}
+                      fillOpacity={point.label === selectedLabel ? 1 : 0.7}
+                      stroke={point.label === selectedLabel ? "rgba(255,255,255,0.82)" : "transparent"}
+                      strokeWidth={point.label === selectedLabel ? 1.5 : 0}
+                    />
+                  ))}
+                  <LabelList dataKey="ebitda" content={renderEbitdaLabel} />
+                </Bar>
                 <Line
                   yAxisId="margin"
                   type="monotone"
                   dataKey="operatingMarginPct"
                   name="Operating Margin %"
-                  stroke={chartColors.secondary}
-                  strokeWidth={2}
-                  strokeDasharray="4 3"
-                  dot={{ r: 3 }}
+                  stroke="url(#operatingMarginStroke)"
+                  strokeWidth={3.5}
+                  dot={(props) =>
+                    props.payload.label === selectedLabel ? (
+                      <circle cx={props.cx} cy={props.cy} fill={chartColors.secondary} {...selectedDot} />
+                    ) : null
+                  }
+                  activeDot={{ ...selectedDot, fill: chartColors.secondary }}
+                  strokeOpacity={0.95}
+                  isAnimationActive={false}
                 />
               </ComposedChart>
-            </ResponsiveContainer>
+            </ResponsiveChartContainer>
           </div>
         )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
-        <div>
+        <div className="print-keep-together">
           <h2 style={sectionTitle}>{detail.label} P&amp;L breakdown</h2>
-          <div style={breakdownGrid}>
+          <div className="print-avoid-break" style={breakdownGrid}>
             <BreakdownRow label="Gross Profit" value={formatEUR(pl.gross_profit)} />
             <BreakdownRow label="Admin Expenses" value={formatEUR(pl.admin_expenses)} muted />
             <BreakdownRow
@@ -304,7 +365,7 @@ const breakdownGrid: React.CSSProperties = {
 const row: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  padding: "var(--space-3) var(--space-4)",
+  padding: "var(--space-2) var(--space-4)",
   borderBottom: "1px solid var(--color-grey-line)",
   fontSize: "var(--text-base)",
 };

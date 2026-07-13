@@ -35,9 +35,16 @@ const KIND_LABELS: Record<string, string> = {
   business_metrics: "Business Metrics",
 };
 
+// No green/amber tokens exist in tokens.css (only the blue accent and
+// rust palettes) — these two are local to this file's status badges
+// rather than global design tokens, and defined once here so the
+// three usages below can't drift out of sync.
+const successColor = { text: "#1A8A5C", background: "#E6F6EF" };
+const warningColor = { text: "#A8720E", background: "#FBF1DE" };
+
 function badgeStyle(status: ExtractionStatus): React.CSSProperties {
-  if (status === "cross_check_pass") return { color: "#1A8A5C", background: "#E6F6EF" };
-  if (status === "schema_valid") return { color: "#A8720E", background: "#FBF1DE" };
+  if (status === "cross_check_pass") return { color: successColor.text, background: successColor.background };
+  if (status === "schema_valid") return { color: warningColor.text, background: warningColor.background };
   return { color: "var(--color-rust)", background: "var(--color-rust-soft)" }; // cross_check_fail, schema_invalid, api_error, pending
 }
 
@@ -393,7 +400,7 @@ const badge: React.CSSProperties = {
 const verifiedYes: React.CSSProperties = {
   fontSize: "var(--text-xs)",
   fontWeight: 600,
-  color: "#1A8A5C",
+  color: successColor.text,
 };
 
 const verifiedNo: React.CSSProperties = {
@@ -472,7 +479,7 @@ const rejectButton: React.CSSProperties = {
 
 const successText: React.CSSProperties = {
   fontSize: "var(--text-sm)",
-  color: "#1A8A5C",
+  color: successColor.text,
   fontWeight: 600,
 };
 

@@ -21,12 +21,23 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceLine,
-  ResponsiveContainer,
 } from "recharts";
 import { boardApi, type PeriodDetail, num, formatEUR } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
+import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
 import { Skeleton } from "../components/Skeleton";
-import { chartCard, axisTick, tooltipStyle, chartColors } from "../styles/chartTheme";
+import {
+  barRadius,
+  chartCard,
+  chartColors,
+  chartMargin,
+  chartCursor,
+  formatCompactEURTick,
+  gridProps,
+  tooltipStyle,
+  xAxisProps,
+  yAxisProps,
+} from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail;
@@ -40,6 +51,7 @@ interface NetAssetsPoint {
 export function SolvencyLeverageSection({ detail }: Props) {
   const [trend, setTrend] = useState<NetAssetsPoint[]>([]);
   const [trendLoading, setTrendLoading] = useState(true);
+  const selectedLabel = detail.label;
 
   useEffect(() => {
     let cancelled = false;
@@ -99,42 +111,60 @@ export function SolvencyLeverageSection({ detail }: Props) {
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h2 style={sectionTitle}>Net assets trend</h2>
         {trendLoading ? (
-          <Skeleton height={220} radius="var(--radius-md)" />
+          <Skeleton height={280} radius="var(--radius-md)" />
         ) : trend.length < 2 ? (
           <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey)", fontSize: "var(--text-sm)" }}>
             Not enough historical data yet to show a trend.
           </div>
         ) : (
-          <div style={chartCard}>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
+          <div className="print-avoid-break" style={chartCard} key={detail.id}>
+            <ResponsiveChartContainer height={280}>
+              <BarChart data={trend} margin={chartMargin.standard}>
+                <defs>
+                  <linearGradient id="netAssetsPositiveFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.primaryBright} />
+                    <stop offset="100%" stopColor={chartColors.primaryDeep} />
+                  </linearGradient>
+                  <linearGradient id="netAssetsNegativeFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.negativeBright} />
+                    <stop offset="100%" stopColor={chartColors.negative} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid {...gridProps} />
                 <XAxis
                   dataKey="label"
-                  tick={axisTick}
-                  axisLine={{ stroke: chartColors.gridLine }}
-                  tickLine={false}
+                  {...xAxisProps}
                 />
                 <YAxis
-                  tick={axisTick}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
+                  {...yAxisProps}
+                  tickFormatter={(v) => formatCompactEURTick(Number(v))}
                 />
-                <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} />
-                <ReferenceLine y={0} stroke={chartColors.gridLine} />
-                <Bar dataKey="netAssets" name="Net Assets" radius={[6, 6, 0, 0]} barSize={40}>
+                <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} cursor={chartCursor} />
+                <ReferenceLine x={selectedLabel} stroke={chartColors.selectedGuide} strokeWidth={2} />
+                <ReferenceLine y={0} stroke={chartColors.gridLine} strokeWidth={1.5} />
+                <Bar
+                  dataKey="netAssets"
+                  name="Net Assets"
+                  radius={barRadius.vertical}
+                  barSize={44}
+                  background={{ fill: "rgba(52, 87, 232, 0.045)", radius: 12 }}
+                  isAnimationActive={false}
+                >
                   {trend.map((p, i) => (
-                    <Cell key={i} fill={p.netAssets < 0 ? chartColors.negative : chartColors.primary} />
+                    <Cell
+                      key={i}
+                      fill={p.netAssets < 0 ? "url(#netAssetsNegativeFill)" : "url(#netAssetsPositiveFill)"}
+                      fillOpacity={p.label === selectedLabel ? 1 : 0.72}
+                      stroke={p.label === selectedLabel ? "rgba(255,255,255,0.82)" : "transparent"}
+                      strokeWidth={p.label === selectedLabel ? 1.5 : 0}
+                    />
                   ))}
                 </Bar>
               </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </div>
+            </ResponsiveChartContainer>
+          </div>        )}      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: "var(--space-5)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: "var(--space-5)" }}>
         <div>
           <h2 style={sectionTitle}>{detail.label} balance sheet composition</h2>
           <CompositionBars
@@ -148,9 +178,9 @@ export function SolvencyLeverageSection({ detail }: Props) {
           />
         </div>
 
-        <div>
+        <div className="print-keep-together">
           <h2 style={sectionTitle}>Solvency metrics</h2>
-          <div style={breakdownGrid}>
+          <div className="print-avoid-break" style={breakdownGrid}>
             <BreakdownRow label="Total Assets" value={formatEUR(totalAssets)} bold />
             <BreakdownRow label="Total Liabilities" value={formatEUR(totalLiabilities)} negative />
             <BreakdownRow label="Net Assets (Equity)" value={formatEUR(equity)} negative={equity < 0} bold />
@@ -225,7 +255,7 @@ function CompositionBars({
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+    <div style={{ ...chartCard, display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
       <StackedBarRow title="Assets" segments={assetSegments} base={base} />
       <StackedBarRow title="Financed By" segments={financeSegments} base={base} />
     </div>
@@ -243,8 +273,8 @@ function StackedBarRow({
 }) {
   return (
     <div>
-      <p style={{ fontSize: "var(--text-sm)", color: "var(--color-grey)", marginBottom: 6 }}>{title}</p>
-      <div style={{ display: "flex", height: 32, borderRadius: 3, overflow: "hidden" }}>
+      <p style={{ fontSize: "var(--text-sm)", color: chartColors.secondary, fontWeight: 800, marginBottom: 8 }}>{title}</p>
+      <div style={{ display: "flex", height: 38, borderRadius: 14, overflow: "hidden", background: chartColors.neutralSoft, boxShadow: "inset 0 0 0 1px rgba(209, 217, 235, 0.76)" }}>
         {segments
           .filter((s) => s.value > 0)
           .map((s) => (
@@ -254,17 +284,18 @@ function StackedBarRow({
               style={{
                 width: `${(s.value / base) * 100}%`,
                 background: s.color,
+                boxShadow: "inset -1px 0 0 rgba(255,255,255,0.38)",
               }}
             />
           ))}
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginTop: 8 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginTop: 10 }}>
         {segments
           .filter((s) => s.value > 0)
           .map((s) => (
             <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, display: "inline-block" }} />
-              <span style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)" }}>
+              <span style={{ width: 9, height: 9, borderRadius: 999, background: s.color, display: "inline-block" }} />
+              <span style={{ fontSize: "var(--text-xs)", color: chartColors.axisLabel, fontWeight: 700 }}>
                 {s.label} · {formatEUR(s.value)}
               </span>
             </div>
@@ -322,7 +353,7 @@ const breakdownGrid: React.CSSProperties = {
 const row: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  padding: "var(--space-3) var(--space-4)",
+  padding: "var(--space-2) var(--space-4)",
   borderBottom: "1px solid var(--color-grey-line)",
   fontSize: "var(--text-base)",
 };

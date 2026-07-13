@@ -13,18 +13,30 @@
 
 import { useEffect, useState } from "react";
 import {
-  LineChart,
-  Line,
+  Area,
+  AreaChart,
   XAxis,
   YAxis,
   CartesianGrid,
+  ReferenceLine,
   Tooltip,
-  ResponsiveContainer,
 } from "recharts";
 import { boardApi, type PeriodDetail, num, formatEUR, formatPct } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
+import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
 import { Skeleton } from "../components/Skeleton";
-import { chartCard, axisTick, tooltipStyle, chartColors } from "../styles/chartTheme";
+import {
+  chartCard,
+  chartColors,
+  chartMargin,
+  chartCursor,
+  formatCompactEURTick,
+  gridProps,
+  selectedDot,
+  tooltipStyle,
+  xAxisProps,
+  yAxisProps,
+} from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail;
@@ -38,6 +50,7 @@ interface MarketCapPoint {
 export function ReturnsSection({ detail }: Props) {
   const [trend, setTrend] = useState<MarketCapPoint[]>([]);
   const [trendLoading, setTrendLoading] = useState(true);
+  const selectedLabel = detail.label;
 
   useEffect(() => {
     let cancelled = false;
@@ -77,9 +90,9 @@ export function ReturnsSection({ detail }: Props) {
           corporate-presentation-sourced customer/market data below is
           available for this period, unlike everything else in this
           section. */}
-      <div style={{ marginBottom: "var(--space-5)" }}>
+      <div className="print-keep-together" style={{ marginBottom: "var(--space-5)" }}>
         <h2 style={sectionTitle}>Capital Efficiency</h2>
-        <div style={breakdownGrid}>
+        <div className="print-avoid-break" style={breakdownGrid}>
           <MetricRow
             label="ROCE (Return on Capital Employed)"
             value={detail.roce_pct !== null ? `${detail.roce_pct.toFixed(1)}%` : null}
@@ -112,35 +125,50 @@ export function ReturnsSection({ detail }: Props) {
         <div style={{ marginBottom: "var(--space-6)" }}>
           <h2 style={sectionTitle}>Market capitalisation trend</h2>
           {trendLoading ? (
-            <Skeleton height={220} radius="var(--radius-md)" />
+            <Skeleton height={280} radius="var(--radius-md)" />
           ) : (
-            <div style={chartCard}>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                  <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
+            <div className="print-avoid-break" style={chartCard} key={detail.id}>
+              <ResponsiveChartContainer height={280}>
+                <AreaChart data={trend} margin={chartMargin.standard}>
+                  <defs>
+                    <linearGradient id="marketCapFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={chartColors.primaryBright} stopOpacity={0.34} />
+                      <stop offset="58%" stopColor={chartColors.primary} stopOpacity={0.12} />
+                      <stop offset="100%" stopColor={chartColors.primary} stopOpacity={0.02} />
+                    </linearGradient>
+                    <linearGradient id="marketCapStroke" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor={chartColors.primaryDeep} />
+                      <stop offset="100%" stopColor={chartColors.primaryBright} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid {...gridProps} />
                   <XAxis
                     dataKey="label"
-                    tick={axisTick}
-                    axisLine={{ stroke: chartColors.gridLine }}
-                    tickLine={false}
+                    {...xAxisProps}
                   />
                   <YAxis
-                    tick={axisTick}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) => `€${(v / 1000000).toFixed(1)}m`}
+                    {...yAxisProps}
+                    tickFormatter={(v) => formatCompactEURTick(Number(v))}
                   />
-                  <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} />
-                  <Line
+                  <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} cursor={chartCursor} />
+                  <ReferenceLine x={selectedLabel} stroke={chartColors.selectedGuide} strokeWidth={2} />
+                  <Area
                     type="monotone"
                     dataKey="marketCap"
                     name="Market Cap"
-                    stroke={chartColors.primary}
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
+                    stroke="url(#marketCapStroke)"
+                    strokeWidth={3.5}
+                    fill="url(#marketCapFill)"
+                    dot={(props) =>
+                      props.payload.label === selectedLabel ? (
+                        <circle cx={props.cx} cy={props.cy} fill={chartColors.primary} {...selectedDot} />
+                      ) : null
+                    }
+                    activeDot={{ ...selectedDot, fill: chartColors.primary }}
+                    isAnimationActive={false}
                   />
-                </LineChart>
-              </ResponsiveContainer>
+                </AreaChart>
+              </ResponsiveChartContainer>
             </div>
           )}
         </div>
@@ -149,10 +177,10 @@ export function ReturnsSection({ detail }: Props) {
       {bm && (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
-            <div>
+            <div className="print-keep-together">
               <h2 style={sectionTitle}>Market</h2>
               {hasMarketData ? (
-                <div style={breakdownGrid}>
+                <div className="print-avoid-break" style={breakdownGrid}>
                   <MetricRow label="Market Cap" value={bm.market_cap ? formatEUR(bm.market_cap) : null} bold />
                   <MetricRow label="Share Price" value={bm.share_price ? formatEUR(bm.share_price) : null} />
                 </div>
@@ -161,10 +189,10 @@ export function ReturnsSection({ detail }: Props) {
               )}
             </div>
 
-            <div>
+            <div className="print-keep-together">
               <h2 style={sectionTitle}>Customers &amp; Unit Economics</h2>
               {hasCustomerData ? (
-                <div style={breakdownGrid}>
+                <div className="print-avoid-break" style={breakdownGrid}>
                   <MetricRow label="Total Customers" value={bm.total_customers?.toString() ?? null} bold />
                   <MetricRow label="Enterprise Customers" value={bm.enterprise_customers?.toString() ?? null} />
                   <MetricRow
@@ -200,9 +228,9 @@ export function ReturnsSection({ detail }: Props) {
           </div>
 
           {(bm.pipeline_value || bm.pipeline_deals_count) && (
-            <div style={{ marginTop: "var(--space-5)" }}>
+            <div className="print-keep-together" style={{ marginTop: "var(--space-5)" }}>
               <h2 style={sectionTitle}>Pipeline</h2>
-              <div style={breakdownGrid}>
+              <div className="print-avoid-break" style={breakdownGrid}>
                 <MetricRow label="Pipeline Value" value={bm.pipeline_value ? formatEUR(bm.pipeline_value) : null} bold />
                 <MetricRow label="Pipeline Deals" value={bm.pipeline_deals_count?.toString() ?? null} />
               </div>
@@ -252,7 +280,7 @@ const breakdownGrid: React.CSSProperties = {
 const row: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  padding: "var(--space-3) var(--space-4)",
+  padding: "var(--space-2) var(--space-4)",
   borderBottom: "1px solid var(--color-grey-line)",
   fontSize: "var(--text-base)",
 };

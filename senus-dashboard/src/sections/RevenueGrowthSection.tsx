@@ -13,17 +13,34 @@ import { useEffect, useState } from "react";
 import {
   ComposedChart,
   Bar,
+  Legend,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
+  Cell,
+  ReferenceLine,
 } from "recharts";
 import { boardApi, type PeriodDetail, num, formatEUR, formatPct } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
+import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
 import { Skeleton } from "../components/Skeleton";
-import { chartCard, axisTick, tooltipStyle, chartColors } from "../styles/chartTheme";
+import {
+  barRadius,
+  chartCard,
+  chartColors,
+  chartMargin,
+  chartCursor,
+  formatCompactEURTick,
+  formatPercentTick,
+  gridProps,
+  legendProps,
+  selectedDot,
+  tooltipStyle,
+  xAxisProps,
+  yAxisProps,
+} from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail; // the currently selected period, from Dashboard
@@ -38,6 +55,7 @@ interface TrendPoint {
 export function RevenueGrowthSection({ detail }: Props) {
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [trendLoading, setTrendLoading] = useState(true);
+  const selectedLabel = detail.label;
 
   useEffect(() => {
     let cancelled = false;
@@ -82,69 +100,96 @@ export function RevenueGrowthSection({ detail }: Props) {
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h2 style={sectionTitle}>Revenue trend</h2>
         {trendLoading ? (
-          <Skeleton height={280} radius="var(--radius-md)" />
+          <Skeleton height={320} radius="var(--radius-md)" />
         ) : trend.length < 2 ? (
           <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey)", fontSize: "var(--text-sm)" }}>
             Not enough historical data yet to show a trend.
           </div>
         ) : (
-          <div style={chartCard}>
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
+          <div className="print-avoid-break" style={chartCard} key={detail.id}>
+            <ResponsiveChartContainer height={320}>
+              <ComposedChart data={trend} margin={chartMargin.dualAxis}>
+                <defs>
+                  <linearGradient id="revenueActiveFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.primaryBright} />
+                    <stop offset="100%" stopColor={chartColors.primaryDeep} />
+                  </linearGradient>
+                  <linearGradient id="revenueMutedFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#BDCBFF" stopOpacity={0.86} />
+                    <stop offset="100%" stopColor="#E8EEFF" stopOpacity={0.9} />
+                  </linearGradient>
+                  <linearGradient id="grossMarginStroke" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#111827" />
+                    <stop offset="100%" stopColor="#64748B" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid {...gridProps} />
+                <Legend {...legendProps} />
                 <XAxis
                   dataKey="label"
-                  tick={axisTick}
-                  axisLine={{ stroke: chartColors.gridLine }}
-                  tickLine={false}
+                  {...xAxisProps}
                 />
                 <YAxis
                   yAxisId="revenue"
-                  tick={axisTick}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
+                  {...yAxisProps}
+                  tickFormatter={(v) => formatCompactEURTick(Number(v))}
                 />
                 <YAxis
                   yAxisId="margin"
                   orientation="right"
-                  tick={axisTick}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `${v}%`}
+                  {...yAxisProps}
+                  tickFormatter={(v) => formatPercentTick(Number(v))}
                 />
                 <Tooltip
                   formatter={(value, name) =>
                     name === "Revenue" ? formatEUR(Number(value)) : formatPct(Number(value))
                   }
                   contentStyle={tooltipStyle}
+                  cursor={chartCursor}
                 />
+                <ReferenceLine x={selectedLabel} stroke={chartColors.selectedGuide} strokeWidth={2} />
                 <Bar
                   yAxisId="revenue"
                   dataKey="revenue"
                   name="Revenue"
-                  fill={chartColors.primary}
-                  radius={[6, 6, 0, 0]}
-                  barSize={36}
-                />
+                  radius={barRadius.vertical}
+                  barSize={42}
+                  background={{ fill: "rgba(52, 87, 232, 0.045)", radius: 12 }}
+                  isAnimationActive={false}
+                >
+                  {trend.map((point) => (
+                    <Cell
+                      key={point.label}
+                      fill={point.label === selectedLabel ? "url(#revenueActiveFill)" : "url(#revenueMutedFill)"}
+                      stroke={point.label === selectedLabel ? "rgba(255,255,255,0.8)" : "transparent"}
+                      strokeWidth={point.label === selectedLabel ? 1.5 : 0}
+                    />
+                  ))}
+                </Bar>
                 <Line
                   yAxisId="margin"
                   type="monotone"
                   dataKey="grossMarginPct"
                   name="Gross Margin %"
-                  stroke={chartColors.negative}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
+                  stroke="url(#grossMarginStroke)"
+                  strokeWidth={3.5}
+                  dot={(props) =>
+                    props.payload.label === selectedLabel ? (
+                      <circle cx={props.cx} cy={props.cy} fill={chartColors.secondary} {...selectedDot} />
+                    ) : null
+                  }
+                  activeDot={{ ...selectedDot, fill: chartColors.secondary }}
+                  isAnimationActive={false}
                 />
               </ComposedChart>
-            </ResponsiveContainer>
+            </ResponsiveChartContainer>
           </div>
         )}
       </div>
 
-      <div>
+      <div className="print-keep-together">
         <h2 style={sectionTitle}>{detail.label} breakdown</h2>
-        <div style={breakdownGrid}>
+        <div className="print-avoid-break" style={breakdownGrid}>
           <BreakdownRow label="Revenue" value={formatEUR(pl.revenue)} />
           <BreakdownRow label="Cost of Sales" value={formatEUR(pl.cost_of_sales)} muted />
           <BreakdownRow label="Gross Profit" value={formatEUR(pl.gross_profit)} bold />
@@ -220,7 +265,7 @@ const breakdownGrid: React.CSSProperties = {
 const row: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  padding: "var(--space-3) var(--space-4)",
+  padding: "var(--space-2) var(--space-4)",
   borderBottom: "1px solid var(--color-grey-line)",
   fontSize: "var(--text-base)",
 };

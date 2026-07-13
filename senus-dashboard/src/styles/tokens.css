@@ -21,6 +21,7 @@
   --color-rust-soft: #FCEAE9;
   --color-grey: #8A93A6;         /* secondary text, slightly cooler than before */
   --color-grey-line: #E7EBF3;    /* hairline borders, cooler tone */
+  --color-on-accent: #FFFFFF;    /* text/icon color on top of --color-forest fills */
 
   /* Sparkline / chart secondary accent — used for the lighter blue
      seen in Assiduous's stacked/dual-tone bars */
@@ -252,9 +253,16 @@ button::-moz-focus-inner {
    itself off its container's real layout width via ResizeObserver — a
    display:none container never has one, so charts render blank when the
    print stylesheet later reveals them. Staying (invisibly) in flow keeps
-   that measurement valid the whole time. */
+   that measurement valid the whole time.
 
-.print-banner,
+   The @page rule below pins a consistent A4 size/margin — without it,
+   window.print() falls back to whatever paper size and margins the
+   visitor's OS print dialog defaults to (Letter in the US, arbitrary
+   margins elsewhere), which makes the exported PDF inconsistent
+   depending on who generates it. */
+
+.print-cover,
+.print-section-eyebrow,
 .print-section-heading {
   display: none;
 }
@@ -273,16 +281,92 @@ button::-moz-focus-inner {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 18mm 16mm;
+  }
+
   .no-print {
     display: none !important;
   }
 
-  .print-banner {
-    display: block;
+  /* Title page for the exported pack — break-after pushes the actual
+     report (hero metrics + sections) onto its own page 2, rather than
+     sharing a page with the cover. min-height roughly fills one A4
+     page (297mm − 2×18mm margin ≈ 261mm) so the centered content reads
+     as an intentional cover rather than a stub at the top of a page. */
+  .print-cover {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 235mm;
+    break-after: page;
+  }
+
+  .print-cover-bar {
+    width: 48px;
+    height: 4px;
+    background: var(--color-forest);
+    border-radius: 2px;
+    margin-bottom: var(--space-6);
+  }
+
+  .print-cover-eyebrow {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-grey);
+    font-weight: 600;
+    margin: 0 0 var(--space-2) 0;
+  }
+
+  .print-cover-title {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    color: var(--color-ink);
+    margin: 0 0 var(--space-5) 0;
+  }
+
+  .print-cover-period {
+    font-family: var(--font-body);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--color-ink);
+    margin: 0 0 var(--space-1) 0;
+  }
+
+  .print-cover-daterange {
     font-family: var(--font-body);
     font-size: var(--text-sm);
     color: var(--color-grey);
-    margin: 0 0 var(--space-4) 0;
+    margin: 0 0 var(--space-5) 0;
+  }
+
+  .print-cover-meta {
+    margin-bottom: var(--space-8);
+  }
+
+  .print-cover-footer {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-grey);
+  }
+
+  /* Repeats at the top of every section's page for orientation when
+     flipping through the exported pack — a real running header (tied
+     to physical page count rather than section count) isn't reachable
+     via CSS in a browser print, but this lands on the same page in
+     practice since each section already starts its own page below. */
+  .print-section-eyebrow {
+    display: block;
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-grey);
+    font-weight: 600;
+    margin: 0 0 var(--space-2) 0;
   }
 
   .print-section-heading {
@@ -291,6 +375,8 @@ button::-moz-focus-inner {
     font-size: var(--text-xl);
     color: var(--color-ink);
     margin: 0 0 var(--space-4) 0;
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-grey-line);
   }
 
   .section-body {
@@ -313,12 +399,57 @@ button::-moz-focus-inner {
     break-before: avoid;
   }
 
+  /* Hero metric tiles are a screen-only headline strip — dropped from
+     print entirely (not just re-flowed) so each section gets its full
+     page instead of sharing page 2 with four KPI cards. */
+  .hero-grid {
+    display: none !important;
+  }
+
   body {
     background: #FFFFFF;
   }
 
-  .card {
+  /* .card covers hero metric tiles; .print-avoid-break tags the
+     breakdown-table/chart-card/AI-insight wrappers that duplicate
+     .card's look inline per section file rather than via className
+     (see RevenueGrowthSection.tsx etc.) — both need the same "don't
+     fragment across a page" treatment. Without break-inside: avoid,
+     Chrome happily splits one of these mid-box, leaving an orphaned
+     row or chart alone (with its own copy of the border/radius) at
+     the top of the next page and a near-blank page behind it. */
+  .card,
+  .print-avoid-break,
+  .print-keep-together {
+    break-inside: avoid;
+  }
+
+  .card,
+  .print-avoid-break {
     box-shadow: none !important;
+  }
+
+  /* Density pass so a section's chart + insight + table actually fit on
+     one physical page instead of the generous on-screen spacing pushing
+     the last block onto an orphaned next page. Screen keeps the airier
+     spacing; only print gets compressed. */
+  .print-avoid-break {
+    padding: var(--space-2) !important;
+  }
+
+  /* .print-keep-together is the same break-inside:avoid contract as
+     .print-avoid-break but for a plain wrapper (heading + its content
+     block) that has no padding/shadow of its own to reduce — e.g. a
+     "Liquidity metrics" <h2> plus the table under it, so the heading
+     can't get left behind alone on the previous page while its table
+     moves to the next one. */
+
+  .board-section > div {
+    margin-bottom: var(--space-2) !important;
+  }
+
+  .board-section h2 {
+    margin-bottom: var(--space-2) !important;
   }
 }
 

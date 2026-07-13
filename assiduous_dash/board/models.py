@@ -507,15 +507,36 @@ class AllowedGoogleEmail(models.Model):
 
 
 class UserPreferences(models.Model):
-    """Per-user settings. notify_on_new_insights gates whether this
-    user's email is included when RegenerateInsightsView notifies
-    subscribers (see board/extraction/email_notifications.py)."""
+    """Per-user notification preferences for published board updates."""
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="preferences")
     notify_on_new_insights = models.BooleanField(default=False)
+    notify_on_board_alerts = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Preferences for {self.user.username}"
+
+
+class BoardAlertSettings(models.Model):
+    """Singleton thresholds that turn the board's key risk signals into alerts."""
+
+    cash_runway_enabled = models.BooleanField(default=True)
+    cash_runway_months_min = models.DecimalField(max_digits=5, decimal_places=1, default=12)
+    ebitda_margin_enabled = models.BooleanField(default=True)
+    ebitda_margin_min_pct = models.DecimalField(max_digits=5, decimal_places=1, default=-25)
+    admin_expense_ratio_enabled = models.BooleanField(default=True)
+    admin_expense_ratio_max_pct = models.DecimalField(max_digits=5, decimal_places=1, default=100)
+    current_ratio_enabled = models.BooleanField(default=True)
+    current_ratio_min = models.DecimalField(max_digits=4, decimal_places=2, default=1)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def get_solo(cls) -> "BoardAlertSettings":
+        obj, _created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Board alert settings"
 
 
 class NotificationSettings(models.Model):

@@ -9,6 +9,7 @@ import type { CurrentUser } from "../api/client";
 
 function initials(identity: string): string {
   const local = identity.split("@")[0]; // strip domain if it's an email
+  if (!local) return "?";
   const segments = local.split(/[._\-\s]+/).filter(Boolean);
   const chars =
     segments.length >= 2 ? [segments[0][0], segments[1][0]] : [local[0], local[1] ?? ""];
@@ -51,6 +52,7 @@ export function AccountMenu({ user, onSignOut }: { user: CurrentUser | null; onS
         style={avatar}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={`Account menu for ${identity}`}
         title={identity}
       >
         {initials(identity)}
@@ -100,7 +102,7 @@ const avatar: React.CSSProperties = {
   height: 32,
   borderRadius: "50%",
   background: "var(--color-forest)",
-  color: "#FFFFFF",
+  color: "var(--color-on-accent)",
   border: "none",
   display: "flex",
   alignItems: "center",

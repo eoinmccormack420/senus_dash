@@ -19,7 +19,7 @@ export function AIInsightCard({ insight }: Props) {
   if (!insight) return null;
 
   return (
-    <div style={wrapper}>
+    <div className="print-avoid-break" style={wrapper}>
       <div style={header}>
         <span style={badge}>
           <SparkleIcon />

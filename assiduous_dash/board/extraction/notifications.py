@@ -17,7 +17,6 @@ deployment already using the env var keeps working unchanged.
 import json
 import logging
 import os
-import urllib.error
 import urllib.request
 
 from board.models import NotificationSettings
@@ -75,4 +74,17 @@ def send_test_slack_message() -> bool:
         return True
     except Exception:  # noqa: BLE001
         logger.exception("Slack test notification failed")
+        return False
+
+
+def send_slack_message(text: str) -> bool:
+    """Send a board alert message, returning delivery status to its caller."""
+    webhook_url = _webhook_url()
+    if not webhook_url:
+        return False
+    try:
+        _post(webhook_url, {"text": text})
+        return True
+    except Exception:  # noqa: BLE001
+        logger.exception("Slack board alert notification failed")
         return False

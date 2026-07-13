@@ -33,7 +33,7 @@ export function AIInsightsSection({ detail }: Props) {
   }
 
   return (
-    <article style={card}>
+    <article className="print-avoid-break" style={card}>
       <header style={cardHeader}>
         <h2 style={cardTitle}>Executive Summary</h2>
         <span style={modelBadge}>{outlook.model_used}</span>

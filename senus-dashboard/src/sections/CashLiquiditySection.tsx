@@ -26,12 +26,24 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceLine,
-  ResponsiveContainer,
 } from "recharts";
 import { boardApi, type PeriodDetail, num, formatEUR } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
+import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
 import { Skeleton } from "../components/Skeleton";
-import { chartCard, axisTick, tooltipStyle, chartColors } from "../styles/chartTheme";
+import {
+  barRadius,
+  chartCard,
+  chartColors,
+  chartMargin,
+  chartCursor,
+  formatCompactEURTick,
+  gridProps,
+  selectedDot,
+  tooltipStyle,
+  xAxisProps,
+  yAxisProps,
+} from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail;
@@ -68,6 +80,7 @@ interface Bridge {
 export function CashLiquiditySection({ detail }: Props) {
   const [trend, setTrend] = useState<CashTrendPoint[]>([]);
   const [trendLoading, setTrendLoading] = useState(true);
+  const selectedLabel = detail.label;
 
   useEffect(() => {
     let cancelled = false;
@@ -115,179 +128,208 @@ export function CashLiquiditySection({ detail }: Props) {
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h2 style={sectionTitle}>Cash balance trend</h2>
         {trendLoading ? (
-          <Skeleton height={220} radius="var(--radius-md)" />
+          <Skeleton height={250} radius="var(--radius-md)" />
         ) : trend.length < 2 ? (
           <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey)", fontSize: "var(--text-sm)" }}>
             Not enough historical data yet to show a trend.
           </div>
         ) : (
-          <div style={chartCard}>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={trend} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <div className="print-avoid-break" style={chartCard} key={detail.id}>
+            <ResponsiveChartContainer height={250}>
+              <AreaChart data={trend} margin={chartMargin.standard}>
                 <defs>
                   <linearGradient id="cashFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={chartColors.primary} stopOpacity={0.35} />
+                    <stop offset="0%" stopColor={chartColors.primaryBright} stopOpacity={0.42} />
+                    <stop offset="52%" stopColor={chartColors.primary} stopOpacity={0.16} />
                     <stop offset="100%" stopColor={chartColors.primary} stopOpacity={0.02} />
                   </linearGradient>
+                  <linearGradient id="cashStroke" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor={chartColors.primaryDeep} />
+                    <stop offset="100%" stopColor={chartColors.primaryBright} />
+                  </linearGradient>
                 </defs>
-                <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
+                <CartesianGrid {...gridProps} />
                 <XAxis
                   dataKey="label"
-                  tick={axisTick}
-                  axisLine={{ stroke: chartColors.gridLine }}
-                  tickLine={false}
+                  {...xAxisProps}
                 />
                 <YAxis
-                  tick={axisTick}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
+                  {...yAxisProps}
+                  tickFormatter={(v) => formatCompactEURTick(Number(v))}
                 />
-                <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} />
+                <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} cursor={chartCursor} />
+                <ReferenceLine x={selectedLabel} stroke={chartColors.selectedGuide} strokeWidth={2} />
                 <Area
                   type="monotone"
                   dataKey="closingCash"
                   name="Cash Balance"
-                  stroke={chartColors.primary}
-                  strokeWidth={2}
+                  stroke="url(#cashStroke)"
+                  strokeWidth={3.5}
                   fill="url(#cashFill)"
+                  dot={(props) =>
+                    props.payload.label === selectedLabel ? (
+                      <circle cx={props.cx} cy={props.cy} fill={chartColors.primary} {...selectedDot} />
+                    ) : null
+                  }
+                  activeDot={{ ...selectedDot, fill: chartColors.primary }}
+                  isAnimationActive={false}
                 />
               </AreaChart>
-            </ResponsiveContainer>
+            </ResponsiveChartContainer>
           </div>
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: "var(--space-5)" }}>
-        <div>
-          <h2 style={sectionTitle}>{detail.label} cash bridge</h2>
-          <div style={chartCard}>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={bridge.steps} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={axisTick}
-                  axisLine={{ stroke: chartColors.gridLine }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={axisTick}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `€${((v - bridge.offset) / 1000).toFixed(0)}k`}
-                />
-                <Tooltip
-                  formatter={(_value, _name, item) =>
-                    formatEUR((item.payload as BridgeStep).displayValue)
-                  }
-                  contentStyle={tooltipStyle}
-                />
-                <Bar dataKey="base" stackId="bridge" fill="transparent" isAnimationActive={false} />
-                <Bar dataKey="value" stackId="bridge" radius={[6, 6, 6, 6]}>
-                  {bridge.steps.map((step, i) => (
-                    <Cell
-                      key={i}
-                      fill={
-                        step.kind === "total"
-                          ? chartColors.neutral
-                          : step.kind === "positive"
-                            ? chartColors.primary
-                            : chartColors.negative
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div>
-          <h2 style={sectionTitle}>Liquidity metrics</h2>
-          <div style={breakdownGrid}>
-            <BreakdownRow label="Opening Cash" value={formatEUR(cf.opening_cash)} muted />
-            <BreakdownRow label="Closing Cash" value={formatEUR(cf.closing_cash)} bold />
-            <BreakdownRow
-              label="Net Cash Movement"
-              value={formatEUR(cf.net_cash_movement)}
-              negative={num(cf.net_cash_movement) < 0}
-              bold
-            />
-            <BreakdownRow
-              label="Operating Cash Flow"
-              value={formatEUR(cf.net_operating_cash)}
-              negative={num(cf.net_operating_cash) < 0}
-            />
-            <BreakdownRow
-              label="Working Capital Movement"
-              value={formatEUR(cf.working_capital_movement)}
-              muted
-              negative={num(cf.working_capital_movement) < 0}
-            />
-            <BreakdownRow label="Free Cash Flow" value={formatEUR(cf.free_cash_flow)} negative={num(cf.free_cash_flow) < 0} />
-            {bs && (
-              <>
-                <BreakdownRow label="Current Ratio" value={bs.current_ratio !== null ? bs.current_ratio.toFixed(2) : "—"} />
-                <BreakdownRow
-                  label="Cash Runway"
-                  value={bs.cash_runway_months !== null ? `${bs.cash_runway_months} months` : "—"}
-                  bold
-                />
-              </>
-            )}
-          </div>
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)", marginTop: "var(--space-3)" }}>
-            Current ratio compares current assets to current liabilities —
-            above 1.0 means short-term obligations are covered by
-            short-term assets.
-          </p>
+      <div style={{ marginBottom: "var(--space-6)" }}>
+        <h2 style={sectionTitle}>{detail.label} cash bridge</h2>
+        <div className="print-avoid-break" style={chartCard}>
+          <ResponsiveChartContainer height={270}>
+            <BarChart data={bridge.steps} margin={chartMargin.bridge}>
+              <defs>
+                <linearGradient id="bridgeTotalFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#374151" />
+                  <stop offset="100%" stopColor="#111827" />
+                </linearGradient>
+                <linearGradient id="bridgePositiveFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={chartColors.primaryBright} />
+                  <stop offset="100%" stopColor={chartColors.primaryDeep} />
+                </linearGradient>
+                <linearGradient id="bridgeNegativeFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={chartColors.negativeBright} />
+                  <stop offset="100%" stopColor={chartColors.negative} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid {...gridProps} />
+              <XAxis
+                dataKey="label"
+                {...xAxisProps}
+              />
+              <YAxis
+                {...yAxisProps}
+                tickFormatter={(v) => formatCompactEURTick(Number(v) - bridge.offset)}
+              />
+              <Tooltip
+                formatter={(_value, _name, item) =>
+                  formatEUR((item.payload as BridgeStep).displayValue)
+                }
+                contentStyle={tooltipStyle}
+                cursor={chartCursor}
+              />
+              <Bar dataKey="base" stackId="bridge" fill="transparent" isAnimationActive={false} />
+              <Bar dataKey="value" stackId="bridge" radius={barRadius.floating} isAnimationActive={false}>
+                {bridge.steps.map((step, i) => (
+                  <Cell
+                    key={i}
+                    fill={
+                      step.kind === "total"
+                        ? "url(#bridgeTotalFill)"
+                        : step.kind === "positive"
+                          ? "url(#bridgePositiveFill)"
+                          : "url(#bridgeNegativeFill)"
+                    }
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveChartContainer>
         </div>
       </div>
 
+      <div className="print-keep-together" style={{ marginBottom: "var(--space-6)" }}>
+        <h2 style={sectionTitle}>Liquidity metrics</h2>
+        <div className="print-avoid-break" style={breakdownGrid}>
+          <BreakdownRow label="Opening Cash" value={formatEUR(cf.opening_cash)} muted />
+          <BreakdownRow label="Closing Cash" value={formatEUR(cf.closing_cash)} bold />
+          <BreakdownRow
+            label="Net Cash Movement"
+            value={formatEUR(cf.net_cash_movement)}
+            negative={num(cf.net_cash_movement) < 0}
+            bold
+          />
+          <BreakdownRow
+            label="Operating Cash Flow"
+            value={formatEUR(cf.net_operating_cash)}
+            negative={num(cf.net_operating_cash) < 0}
+          />
+          <BreakdownRow
+            label="Working Capital Movement"
+            value={formatEUR(cf.working_capital_movement)}
+            muted
+            negative={num(cf.working_capital_movement) < 0}
+          />
+          <BreakdownRow label="Free Cash Flow" value={formatEUR(cf.free_cash_flow)} negative={num(cf.free_cash_flow) < 0} />
+          {bs && (
+            <>
+              <BreakdownRow label="Current Ratio" value={bs.current_ratio !== null ? bs.current_ratio.toFixed(2) : "—"} />
+              <BreakdownRow
+                label="Cash Runway"
+                value={bs.cash_runway_months !== null ? `${bs.cash_runway_months} months` : "—"}
+                bold
+              />
+            </>
+          )}
+        </div>
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)", marginTop: "var(--space-3)" }}>
+          Current ratio compares current assets to current liabilities —
+          above 1.0 means short-term obligations are covered by
+          short-term assets.
+        </p>
+      </div>
+
       {ebitdaBridge && (
-        <div style={{ marginTop: "var(--space-6)" }}>
+        <div className="print-keep-together" style={{ marginTop: "var(--space-6)" }}>
           <h2 style={sectionTitle}>EBITDA to Free Cash Flow bridge</h2>
-          <div style={chartCard}>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={ebitdaBridge.steps} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                <CartesianGrid stroke={chartColors.gridLine} vertical={false} />
+          <div className="print-avoid-break" style={chartCard}>
+            <ResponsiveChartContainer height={270}>
+              <BarChart data={ebitdaBridge.steps} margin={chartMargin.bridge}>
+                <defs>
+                  <linearGradient id="ebitdaBridgeTotalFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#374151" />
+                    <stop offset="100%" stopColor="#111827" />
+                  </linearGradient>
+                  <linearGradient id="ebitdaBridgePositiveFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.primaryBright} />
+                    <stop offset="100%" stopColor={chartColors.primaryDeep} />
+                  </linearGradient>
+                  <linearGradient id="ebitdaBridgeNegativeFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.negativeBright} />
+                    <stop offset="100%" stopColor={chartColors.negative} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid {...gridProps} />
                 <XAxis
                   dataKey="label"
-                  tick={axisTick}
-                  axisLine={{ stroke: chartColors.gridLine }}
-                  tickLine={false}
+                  {...xAxisProps}
                 />
                 <YAxis
-                  tick={axisTick}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `€${((v - ebitdaBridge.offset) / 1000).toFixed(0)}k`}
+                  {...yAxisProps}
+                  tickFormatter={(v) => formatCompactEURTick(Number(v) - ebitdaBridge.offset)}
                 />
-                <ReferenceLine y={ebitdaBridge.offset} stroke={chartColors.gridLine} />
+                <ReferenceLine y={ebitdaBridge.offset} stroke={chartColors.gridLine} strokeWidth={1.5} />
                 <Tooltip
                   formatter={(_value, _name, item) =>
                     formatEUR((item.payload as BridgeStep).displayValue)
                   }
                   contentStyle={tooltipStyle}
+                  cursor={chartCursor}
                 />
                 <Bar dataKey="base" stackId="ebitda-bridge" fill="transparent" isAnimationActive={false} />
-                <Bar dataKey="value" stackId="ebitda-bridge" radius={[6, 6, 6, 6]}>
+                <Bar dataKey="value" stackId="ebitda-bridge" radius={barRadius.floating} isAnimationActive={false}>
                   {ebitdaBridge.steps.map((step, i) => (
                     <Cell
                       key={i}
                       fill={
                         step.kind === "total"
-                          ? chartColors.neutral
+                          ? "url(#ebitdaBridgeTotalFill)"
                           : step.kind === "positive"
-                            ? chartColors.primary
-                            : chartColors.negative
+                            ? "url(#ebitdaBridgePositiveFill)"
+                            : "url(#ebitdaBridgeNegativeFill)"
                       }
                     />
                   ))}
                 </Bar>
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveChartContainer>
           </div>
           <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)", marginTop: "var(--space-3)" }}>
             "Other Adjustments" reconciles EBITDA down to the actual
@@ -344,7 +386,13 @@ function buildEbitdaBridge(
       step(afterTax, afterWorkingCapital, "Working Capital"),
       step(afterWorkingCapital, afterOther, "Other Adj."),
       step(afterOther, afterInvesting, "Investing"),
-      { ...step(0, afterInvesting, "Free Cash Flow"), kind: "total" },
+      // "FCF" not "Free Cash Flow" — this is the chart's rightmost/last
+      // category, and the full label doesn't fit inside its tick slot at
+      // the chart's fixed print width (gets silently clipped to "Free
+      // Cash F" by the card's overflow:hidden). The full figure is still
+      // in the Liquidity metrics table above and the chart's own heading
+      // already says "EBITDA to Free Cash Flow bridge".
+      { ...step(0, afterInvesting, "FCF"), kind: "total" },
     ],
   };
 }
@@ -434,7 +482,7 @@ const breakdownGrid: React.CSSProperties = {
 const row: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  padding: "var(--space-3) var(--space-4)",
+  padding: "var(--space-2) var(--space-4)",
   borderBottom: "1px solid var(--color-grey-line)",
   fontSize: "var(--text-base)",
 };

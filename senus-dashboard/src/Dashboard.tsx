@@ -143,7 +143,7 @@ export default function Dashboard({
 
   return (
     <div style={styles.page}>
-      <header style={styles.header}>
+      <header className="no-print" style={styles.header}>
         <div>
           <p style={styles.eyebrow}>Senus PLC</p>
           <div style={styles.titleRow}>
@@ -154,7 +154,7 @@ export default function Dashboard({
             <ProvenanceBadge provenance={detail.provenance} style={{ marginTop: "var(--space-2)" }} />
           )}
         </div>
-        <div className="no-print" style={styles.headerControls}>
+        <div style={styles.headerControls}>
           <PeriodTabs periods={periods} selectedId={selectedId} loading={loading} onSelect={setSelectedId} />
           <button
             onClick={() => window.print()}
@@ -176,11 +176,7 @@ export default function Dashboard({
         <DashboardSkeleton />
       ) : (
         <>
-          <p className="print-banner">
-            Senus PLC — Board Report — {detail.label}
-            {" · "}
-            Generated {new Date().toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })}
-          </p>
+          <PrintCover detail={detail} />
 
           <HeroMetrics detail={detail} history={history} />
 
@@ -215,6 +211,7 @@ export default function Dashboard({
                 key={s.key}
                 className={activeSection === s.key ? "board-section" : "board-section board-section-hidden"}
               >
+                <p className="print-section-eyebrow">Senus PLC · Board Report · {detail.label}</p>
                 <h2 className="print-section-heading">{s.label}</h2>
                 {s.key === "revenue_growth" && <RevenueGrowthSection detail={detail} />}
                 {s.key === "profitability" && <ProfitabilitySection detail={detail} />}
@@ -392,7 +389,7 @@ function HeroMetrics({ detail, history }: { detail: PeriodDetail; history: Histo
   const operatingLossChange = pctChange(history, detail.end_date, "operatingLoss");
 
   return (
-    <section style={styles.hero}>
+    <section className="hero-grid" style={styles.hero}>
       <div className="card" style={styles.heroCard}>
         <div style={styles.heroCardHeader}>
           <p style={styles.heroLabel}>Revenue</p>
@@ -441,6 +438,37 @@ function HeroMetrics({ detail, history }: { detail: PeriodDetail; history: Histo
         <p style={styles.heroCaption}>{bs ? formatEUR(bs.cash) : "—"} cash on hand</p>
       </div>
     </section>
+  );
+}
+
+// Title page for "Download Board Pack" — print-only (see .print-cover in
+// tokens.css), sits before the on-screen content so the printed/exported
+// PDF opens on a proper cover rather than diving straight into figures.
+function PrintCover({ detail }: { detail: PeriodDetail }) {
+  const periodTypeLabel = detail.period_type === "annual" ? "Annual Report" : "Half Year Report";
+  const dateOpts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" };
+  const dateRange = `${new Date(detail.start_date).toLocaleDateString("en-IE", dateOpts)} – ${new Date(
+    detail.end_date
+  ).toLocaleDateString("en-IE", dateOpts)}`;
+
+  return (
+    <div className="print-cover">
+      <div className="print-cover-bar" />
+      <p className="print-cover-eyebrow">Senus PLC</p>
+      <h1 className="print-cover-title">Board Report</h1>
+      <p className="print-cover-period">
+        {periodTypeLabel} — {detail.label}
+      </p>
+      <p className="print-cover-daterange">{dateRange}</p>
+      <div className="print-cover-meta">
+        <ProvenanceBadge provenance={detail.provenance} />
+      </div>
+      <p className="print-cover-footer">
+        Generated{" "}
+        {new Date().toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })}
+        {" · "}Prepared for the board of Senus PLC — confidential
+      </p>
+    </div>
   );
 }
 

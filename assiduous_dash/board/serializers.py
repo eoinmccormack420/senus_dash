@@ -30,6 +30,7 @@ from .models import (
     AllowedGoogleEmail,
     UserPreferences,
     NotificationSettings,
+    BoardAlertSettings,
 )
 
 
@@ -219,7 +220,24 @@ class AllowedGoogleEmailSerializer(serializers.ModelSerializer):
 class UserPreferencesSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserPreferences
-        fields = ["notify_on_new_insights"]
+        fields = ["notify_on_new_insights", "notify_on_board_alerts"]
+
+
+class BoardAlertSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BoardAlertSettings
+        fields = [
+            "cash_runway_enabled",
+            "cash_runway_months_min",
+            "ebitda_margin_enabled",
+            "ebitda_margin_min_pct",
+            "admin_expense_ratio_enabled",
+            "admin_expense_ratio_max_pct",
+            "current_ratio_enabled",
+            "current_ratio_min",
+            "updated_at",
+        ]
+        read_only_fields = ["updated_at"]
 
 
 class NotificationSettingsSerializer(serializers.ModelSerializer):
