@@ -143,7 +143,7 @@ const identityPrimary: React.CSSProperties = {
 const identitySecondary: React.CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "2px 0 0 0",
 };
 

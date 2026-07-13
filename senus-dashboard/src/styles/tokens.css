@@ -19,7 +19,8 @@
   --color-forest-soft: #EAEFFD;  /* accent tint for backgrounds/badges */
   --color-rust: #E0483F;         /* negative/loss figures — brighter red, matches down-trend pills */
   --color-rust-soft: #FCEAE9;
-  --color-grey: #8A93A6;         /* secondary text, slightly cooler than before */
+  --color-grey: #8A93A6;         /* secondary/decorative use only — ~3.1:1 on white, fails AA for text */
+  --color-grey-text: #6B7280;    /* secondary TEXT color — ~4.8:1 on white/paper, passes WCAG AA */
   --color-grey-line: #E7EBF3;    /* hairline borders, cooler tone */
   --color-on-accent: #FFFFFF;    /* text/icon color on top of --color-forest fills */
 
@@ -240,7 +241,7 @@ button::-moz-focus-inner {
 }
 
 .provenance-manual {
-  color: var(--color-grey);
+  color: var(--color-grey-text);
   background: var(--color-paper);
   border: 1px solid var(--color-grey-line);
 }
@@ -316,7 +317,7 @@ button::-moz-focus-inner {
     font-size: var(--text-sm);
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--color-grey);
+    color: var(--color-grey-text);
     font-weight: 600;
     margin: 0 0 var(--space-2) 0;
   }
@@ -339,7 +340,7 @@ button::-moz-focus-inner {
   .print-cover-daterange {
     font-family: var(--font-body);
     font-size: var(--text-sm);
-    color: var(--color-grey);
+    color: var(--color-grey-text);
     margin: 0 0 var(--space-5) 0;
   }
 
@@ -350,7 +351,7 @@ button::-moz-focus-inner {
   .print-cover-footer {
     font-family: var(--font-body);
     font-size: var(--text-xs);
-    color: var(--color-grey);
+    color: var(--color-grey-text);
   }
 
   /* Repeats at the top of every section's page for orientation when
@@ -364,7 +365,7 @@ button::-moz-focus-inner {
     font-size: var(--text-xs);
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--color-grey);
+    color: var(--color-grey-text);
     font-weight: 600;
     margin: 0 0 var(--space-2) 0;
   }

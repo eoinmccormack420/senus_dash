@@ -234,7 +234,7 @@ function AttemptRow({
   return (
     <>
       <tr onClick={onToggle} style={row}>
-        <td style={{ ...td, width: 20, color: "var(--color-grey)" }}>{expanded ? "▾" : "▸"}</td>
+        <td style={{ ...td, width: 20, color: "var(--color-grey-text)" }}>{expanded ? "▾" : "▸"}</td>
         <td style={td}>{attempt.period.label}</td>
         <td style={td}>{KIND_LABELS[attempt.statement_kind] ?? attempt.statement_kind}</td>
         <td style={td}>
@@ -318,7 +318,7 @@ const title: React.CSSProperties = {
 
 const caption: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "0 0 var(--space-4) 0",
 };
 
@@ -353,7 +353,7 @@ const card: React.CSSProperties = {
 
 const emptyText: React.CSSProperties = {
   padding: "var(--space-5)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   fontSize: "var(--text-sm)",
   textAlign: "center",
 };
@@ -366,7 +366,7 @@ const table: React.CSSProperties = {
 
 const th: React.CSSProperties = {
   textAlign: "left",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   fontWeight: 500,
   fontSize: "var(--text-xs)",
   padding: "var(--space-3) var(--space-4)",
@@ -405,7 +405,7 @@ const verifiedYes: React.CSSProperties = {
 
 const verifiedNo: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
 };
 
 const detailCell: React.CSSProperties = {
@@ -416,7 +416,7 @@ const detailCell: React.CSSProperties = {
 
 const sourceText: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "0 0 var(--space-3) 0",
   wordBreak: "break-all",
 };
@@ -430,7 +430,7 @@ const fieldTable: React.CSSProperties = {
 
 const fth: React.CSSProperties = {
   textAlign: "left",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   fontWeight: 500,
   fontSize: "var(--text-xs)",
   padding: "var(--space-2)",

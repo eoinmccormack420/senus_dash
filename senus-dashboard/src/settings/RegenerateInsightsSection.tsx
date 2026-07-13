@@ -66,7 +66,7 @@ export function RegenerateInsightsSection() {
 function statusStyle(status: string): React.CSSProperties {
   if (status === "generated") return { color: "#1A8A5C" };
   if (status === "error") return { color: "var(--color-rust)" };
-  return { color: "var(--color-grey)" };
+  return { color: "var(--color-grey-text)" };
 }
 
 const title: React.CSSProperties = {
@@ -79,7 +79,7 @@ const title: React.CSSProperties = {
 
 const caption: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "0 0 var(--space-4) 0",
 };
 
@@ -135,7 +135,7 @@ const resultStatus: React.CSSProperties = {
 };
 
 const resultDetail: React.CSSProperties = {
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",

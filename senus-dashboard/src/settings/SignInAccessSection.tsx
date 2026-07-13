@@ -113,7 +113,7 @@ const title: React.CSSProperties = {
 
 const caption: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "0 0 var(--space-4) 0",
 };
 

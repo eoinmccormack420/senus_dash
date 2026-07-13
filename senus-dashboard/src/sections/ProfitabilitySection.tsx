@@ -27,12 +27,14 @@ import { boardApi, type PeriodDetail, num, formatEUR, formatPct } from "../api/c
 import { AIInsightCard } from "../components/AIInsightCard";
 import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
 import { Skeleton } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
 import {
   barRadius,
   chartCard,
   chartColors,
   chartMargin,
   chartCursor,
+  CHART_HEIGHT_TALL,
   formatCompactEURTick,
   formatPercentTick,
   gridProps,
@@ -94,24 +96,34 @@ export function ProfitabilitySection({ detail }: Props) {
   const pl = detail.pl_statement;
 
   if (!pl) {
-    return (
-      <div style={{ color: "var(--color-grey)", padding: "var(--space-6) 0" }}>
-        No P&amp;L data available for {detail.label} yet.
-      </div>
-    );
+    return <EmptyState>No P&amp;L data available for {detail.label} yet.</EmptyState>;
   }
 
   const revenue = num(pl.revenue);
   const operatingLoss = num(pl.operating_loss);
   const operatingMarginPct = revenue !== 0 ? (operatingLoss / revenue) * 100 : 0;
 
-  const renderEbitdaLabel = ({ x = 0, y = 0, width = 0, height = 0, value }: any) => {
-    const formatted = formatCompactEURTick(Number(value));
-    const isNegative = Number(value) < 0;
-    const labelY = isNegative ? y + height + 18 : y - 8;
+  type LabelRendererProps = {
+    x?: number | string;
+    y?: number | string;
+    width?: number | string;
+    height?: number | string;
+    value?: number | string | null;
+    index?: number;
+  };
+
+  const renderEbitdaLabel = ({ x = 0, y = 0, width = 0, height = 0, value }: LabelRendererProps) => {
+    const xNum = Number(x ?? 0);
+    const yNum = Number(y ?? 0);
+    const widthNum = Number(width ?? 0);
+    const heightNum = Number(height ?? 0);
+    const numValue = Number(value ?? 0);
+    const formatted = formatCompactEURTick(numValue);
+    const isNegative = numValue < 0;
+    const labelY = isNegative ? yNum + heightNum + 18 : yNum - 8;
     return (
       <text
-        x={x + width / 2}
+        x={xNum + widthNum / 2}
         y={labelY}
         fill={chartColors.secondary}
         textAnchor="middle"
@@ -129,14 +141,14 @@ export function ProfitabilitySection({ detail }: Props) {
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h2 style={sectionTitle}>EBITDA &amp; operating margin trend</h2>
         {trendLoading ? (
-          <Skeleton height={300} radius="var(--radius-md)" />
+          <Skeleton height={CHART_HEIGHT_TALL} radius="var(--radius-md)" />
         ) : trend.length < 2 ? (
-          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey)", fontSize: "var(--text-sm)" }}>
+          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey-text)", fontSize: "var(--text-sm)" }}>
             Not enough historical data yet to show a trend.
           </div>
         ) : (
           <div className="print-avoid-break" style={chartCard} key={detail.id}>
-            <ResponsiveChartContainer height={300}>
+            <ResponsiveChartContainer height={CHART_HEIGHT_TALL}>
               <ComposedChart data={trend} margin={chartMargin.dualAxis}>
                 <defs>
                   <linearGradient id="ebitdaPositiveFill" x1="0" y1="0" x2="0" y2="1">
@@ -200,7 +212,7 @@ export function ProfitabilitySection({ detail }: Props) {
                       strokeWidth={point.label === selectedLabel ? 1.5 : 0}
                     />
                   ))}
-                  <LabelList dataKey="ebitda" content={renderEbitdaLabel} />
+                  <LabelList dataKey="ebitda" content={(p) => renderEbitdaLabel(p as LabelRendererProps)} />
                 </Bar>
                 <Line
                   yAxisId="margin"
@@ -224,7 +236,7 @@ export function ProfitabilitySection({ detail }: Props) {
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "var(--space-5)" }}>
         <div className="print-keep-together">
           <h2 style={sectionTitle}>{detail.label} P&amp;L breakdown</h2>
           <div className="print-avoid-break" style={breakdownGrid}>
@@ -289,7 +301,7 @@ function CostDriverBars({ pl }: { pl: NonNullable<PeriodDetail["pl_statement"]> 
       {bars.map((b) => (
         <div key={b.label}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-            <span style={{ fontSize: "var(--text-sm)", color: "var(--color-grey)" }}>{b.label}</span>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--color-grey-text)" }}>{b.label}</span>
             <span className="num" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
               {formatEUR(b.value)}
             </span>
@@ -306,7 +318,7 @@ function CostDriverBars({ pl }: { pl: NonNullable<PeriodDetail["pl_statement"]> 
           </div>
         </div>
       ))}
-      <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)", marginTop: "var(--space-2)" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey-text)", marginTop: "var(--space-2)" }}>
         Admin expenses exceed gross profit by{" "}
         <span className="num" style={{ fontWeight: 600 }}>
           {formatEUR(Math.max(adminExpenses - grossProfit, 0))}
@@ -332,7 +344,7 @@ function BreakdownRow({
 }) {
   return (
     <div style={row}>
-      <span style={{ color: muted ? "var(--color-grey)" : "var(--color-ink)" }}>{label}</span>
+      <span style={{ color: muted ? "var(--color-grey-text)" : "var(--color-ink)" }}>{label}</span>
       <span
         className="num"
         style={{

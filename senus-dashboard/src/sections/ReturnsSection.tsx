@@ -25,11 +25,13 @@ import { boardApi, type PeriodDetail, num, formatEUR, formatPct } from "../api/c
 import { AIInsightCard } from "../components/AIInsightCard";
 import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
 import { Skeleton } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
 import {
   chartCard,
   chartColors,
   chartMargin,
   chartCursor,
+  CHART_HEIGHT,
   formatCompactEURTick,
   gridProps,
   selectedDot,
@@ -99,7 +101,7 @@ export function ReturnsSection({ detail }: Props) {
             bold
           />
         </div>
-        <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)", marginTop: "var(--space-2)" }}>
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey-text)", marginTop: "var(--space-2)" }}>
           ROCE = operating result ÷ (total assets − current liabilities).
           Negative here reflects Senus's current pre-profitability growth
           stage, not an error — a company still investing ahead of
@@ -108,27 +110,27 @@ export function ReturnsSection({ detail }: Props) {
       </div>
 
       {!bm && (
-        <div style={emptyState}>
+        <EmptyState>
           <p style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-lg)", color: "var(--color-ink)" }}>
             No business metrics available for {detail.label} yet.
           </p>
-          <p style={{ color: "var(--color-grey)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
+          <p style={{ color: "var(--color-grey-text)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
             Customer, ACV, and market data are typically sourced from a
             separate corporate presentation document, not the financial
             statements — run the extraction pipeline against that document
             for this period once available.
           </p>
-        </div>
+        </EmptyState>
       )}
 
       {trend.length >= 2 && (
         <div style={{ marginBottom: "var(--space-6)" }}>
           <h2 style={sectionTitle}>Market capitalisation trend</h2>
           {trendLoading ? (
-            <Skeleton height={280} radius="var(--radius-md)" />
+            <Skeleton height={CHART_HEIGHT} radius="var(--radius-md)" />
           ) : (
             <div className="print-avoid-break" style={chartCard} key={detail.id}>
-              <ResponsiveChartContainer height={280}>
+              <ResponsiveChartContainer height={CHART_HEIGHT}>
                 <AreaChart data={trend} margin={chartMargin.standard}>
                   <defs>
                     <linearGradient id="marketCapFill" x1="0" y1="0" x2="0" y2="1">
@@ -176,7 +178,7 @@ export function ReturnsSection({ detail }: Props) {
 
       {bm && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "var(--space-5)" }}>
             <div className="print-keep-together">
               <h2 style={sectionTitle}>Market</h2>
               {hasMarketData ? (
@@ -245,8 +247,8 @@ export function ReturnsSection({ detail }: Props) {
 function MetricRow({ label, value, muted, bold }: { label: string; value: string | null; muted?: boolean; bold?: boolean }) {
   return (
     <div style={row}>
-      <span style={{ color: muted ? "var(--color-grey)" : "var(--color-ink)" }}>{label}</span>
-      <span className="num" style={{ fontWeight: bold ? 600 : 400, color: value === null ? "var(--color-grey)" : "var(--color-ink)" }}>
+      <span style={{ color: muted ? "var(--color-grey-text)" : "var(--color-ink)" }}>{label}</span>
+      <span className="num" style={{ fontWeight: bold ? 600 : 400, color: value === null ? "var(--color-grey-text)" : "var(--color-ink)" }}>
         {value ?? "—"}
       </span>
     </div>
@@ -255,7 +257,7 @@ function MetricRow({ label, value, muted, bold }: { label: string; value: string
 
 function NoDataNote({ text }: { text: string }) {
   return (
-    <div style={{ ...breakdownGrid, padding: "var(--space-4)", color: "var(--color-grey)", fontSize: "var(--text-sm)" }}>
+    <div style={{ ...breakdownGrid, padding: "var(--space-4)", color: "var(--color-grey-text)", fontSize: "var(--text-sm)" }}>
       {text}
     </div>
   );
@@ -283,11 +285,4 @@ const row: React.CSSProperties = {
   padding: "var(--space-2) var(--space-4)",
   borderBottom: "1px solid var(--color-grey-line)",
   fontSize: "var(--text-base)",
-};
-
-const emptyState: React.CSSProperties = {
-  padding: "var(--space-8)",
-  textAlign: "center",
-  border: "1px dashed var(--color-grey-line)",
-  borderRadius: "var(--radius-md)",
 };

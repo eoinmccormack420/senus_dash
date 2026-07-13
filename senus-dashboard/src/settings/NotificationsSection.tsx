@@ -697,7 +697,7 @@ const checkbox: React.CSSProperties = {
 
 const caption: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "var(--space-2) 0 0 0",
 };
 
@@ -717,7 +717,7 @@ const sectionTitle: React.CSSProperties = {
 
 const sectionCaption: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "0 0 var(--space-4) 0",
 };
 
@@ -774,7 +774,7 @@ const badgeConnected: React.CSSProperties = {
 };
 
 const badgeNotConnected: React.CSSProperties = {
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   background: "var(--color-paper-raised)",
 };
 
@@ -786,7 +786,7 @@ const connectedLabel: React.CSSProperties = {
 
 const envNote: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: 0,
 };
 
@@ -797,7 +797,7 @@ const inputRow: React.CSSProperties = {
 
 const smtpGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "2fr auto 1fr 1fr",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
   gap: "var(--space-2)",
   marginBottom: "var(--space-3)",
   alignItems: "center",
@@ -805,7 +805,7 @@ const smtpGrid: React.CSSProperties = {
 
 const smtpGridSimple: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
+  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
   gap: "var(--space-2)",
   marginBottom: "var(--space-3)",
 };
@@ -886,7 +886,7 @@ const linkButton: React.CSSProperties = {
   fontFamily: "var(--font-body)",
   fontWeight: 500,
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   background: "none",
   border: "none",
   padding: 0,
@@ -904,6 +904,6 @@ const advancedPanel: React.CSSProperties = {
 
 const feedbackText: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "var(--space-2) 0 0 0",
 };

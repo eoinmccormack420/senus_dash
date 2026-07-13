@@ -7,6 +7,7 @@
 // everything into a single board-level paragraph.
 
 import type { PeriodDetail } from "../api/client";
+import EmptyState from "../components/EmptyState";
 
 interface Props {
   detail: PeriodDetail;
@@ -17,18 +18,18 @@ export function AIInsightsSection({ detail }: Props) {
 
   if (!outlook) {
     return (
-      <div style={emptyState}>
+      <EmptyState>
         <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: "var(--text-lg)", color: "var(--color-ink)" }}>
           No executive summary generated yet for {detail.label}.
         </p>
-        <p style={{ color: "var(--color-grey)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
+        <p style={{ color: "var(--color-grey-text)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
           Run <code style={codeStyle}>python manage.py generate_insights --period {detail.label}</code>{" "}
           to generate board commentary from this period's validated figures.
           Individual section commentary appears inline within Revenue &amp;
           Growth, Profitability, Cash &amp; Liquidity, Solvency &amp;
           Leverage, and Returns once generated.
         </p>
-      </div>
+      </EmptyState>
     );
   }
 
@@ -83,7 +84,7 @@ const cardTitle: React.CSSProperties = {
 const modelBadge: React.CSSProperties = {
   fontFamily: "var(--font-mono)",
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   border: "1px solid var(--color-grey-line)",
   borderRadius: "var(--radius-sm)",
   padding: "2px 8px",
@@ -101,16 +102,9 @@ const cardBody: React.CSSProperties = {
 
 const cardTimestamp: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   marginTop: "var(--space-3)",
   marginBottom: 0,
-};
-
-const emptyState: React.CSSProperties = {
-  padding: "var(--space-8)",
-  textAlign: "center",
-  border: "1px dashed var(--color-grey-line)",
-  borderRadius: "var(--radius-md)",
 };
 
 const codeStyle: React.CSSProperties = {

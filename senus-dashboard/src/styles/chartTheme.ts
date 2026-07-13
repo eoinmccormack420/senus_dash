@@ -9,9 +9,9 @@
 export const chartCard: React.CSSProperties = {
   background:
     "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,255,0.96) 100%)",
-  border: "1px solid rgba(209, 217, 235, 0.82)",
-  borderRadius: "22px",
-  boxShadow: "0 1px 2px rgba(20, 24, 31, 0.04), 0 18px 44px rgba(52, 87, 232, 0.10)",
+  border: "1px solid var(--color-grey-line)",
+  borderRadius: "var(--radius-md)",
+  boxShadow: "var(--shadow-card)",
   padding: "28px 28px 22px",
   width: "100%",
   minWidth: 0,
@@ -29,20 +29,26 @@ export const chartCard: React.CSSProperties = {
 // the width while a chart's section is still off-screen/hidden.
 export const CHART_WIDTH = 620;
 
+// Shared on-screen chart heights so switching between section tabs
+// doesn't visibly resize the layout — one tier for a single chart,
+// one for dual-axis/bridge charts that need more vertical room.
+export const CHART_HEIGHT = 280;
+export const CHART_HEIGHT_TALL = 320;
+
 export const axisTick = {
   fontFamily: "var(--font-body)",
-  fontSize: 12,
+  fontSize: "var(--text-xs)",
   fontWeight: 700,
   fill: "#7C879D",
 };
 
 export const tooltipStyle: React.CSSProperties = {
   fontFamily: "var(--font-body)",
-  fontSize: 13,
+  fontSize: "var(--text-sm)",
   color: "var(--color-ink)",
   background: "rgba(255, 255, 255, 0.96)",
   border: "1px solid rgba(209, 217, 235, 0.92)",
-  borderRadius: 14,
+  borderRadius: "var(--radius-md)",
   boxShadow: "0 18px 44px rgba(20, 24, 31, 0.16)",
   padding: "12px 14px",
   backdropFilter: "blur(12px)",
@@ -54,7 +60,7 @@ export const chartColors = {
   primaryDeep: "#203FC6",
   negative: "#E0483F", // loss/negative series
   negativeBright: "#F66F66",
-  secondary: "#111827", // muted comparison series (e.g. margin %)
+  secondary: "#14181F", // muted comparison series (e.g. margin %) — matches --color-ink
   secondarySoft: "#6B7280",
   softPrimary: "#DCE5FF",
   softNegative: "#FCE0DE",
@@ -101,7 +107,7 @@ export const legendProps = {
   iconSize: 8,
   wrapperStyle: {
     paddingBottom: 12,
-    fontSize: 13,
+    fontSize: "var(--text-sm)",
     color: chartColors.axisLabel,
     fontWeight: 800,
   },

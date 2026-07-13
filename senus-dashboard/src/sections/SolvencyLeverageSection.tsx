@@ -26,12 +26,14 @@ import { boardApi, type PeriodDetail, num, formatEUR } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
 import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
 import { Skeleton } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
 import {
   barRadius,
   chartCard,
   chartColors,
   chartMargin,
   chartCursor,
+  CHART_HEIGHT,
   formatCompactEURTick,
   gridProps,
   tooltipStyle,
@@ -81,11 +83,7 @@ export function SolvencyLeverageSection({ detail }: Props) {
   const bs = detail.balance_sheet;
 
   if (!bs) {
-    return (
-      <div style={{ color: "var(--color-grey)", padding: "var(--space-6) 0" }}>
-        No balance sheet data available for {detail.label} yet.
-      </div>
-    );
+    return <EmptyState>No balance sheet data available for {detail.label} yet.</EmptyState>;
   }
 
   // Note: BalanceSheet.net_assets doesn't currently subtract
@@ -111,14 +109,14 @@ export function SolvencyLeverageSection({ detail }: Props) {
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h2 style={sectionTitle}>Net assets trend</h2>
         {trendLoading ? (
-          <Skeleton height={280} radius="var(--radius-md)" />
+          <Skeleton height={CHART_HEIGHT} radius="var(--radius-md)" />
         ) : trend.length < 2 ? (
-          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey)", fontSize: "var(--text-sm)" }}>
+          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey-text)", fontSize: "var(--text-sm)" }}>
             Not enough historical data yet to show a trend.
           </div>
         ) : (
           <div className="print-avoid-break" style={chartCard} key={detail.id}>
-            <ResponsiveChartContainer height={280}>
+            <ResponsiveChartContainer height={CHART_HEIGHT}>
               <BarChart data={trend} margin={chartMargin.standard}>
                 <defs>
                   <linearGradient id="netAssetsPositiveFill" x1="0" y1="0" x2="0" y2="1">
@@ -162,9 +160,11 @@ export function SolvencyLeverageSection({ detail }: Props) {
                 </Bar>
               </BarChart>
             </ResponsiveChartContainer>
-          </div>        )}      </div>
+          </div>
+        )}
+      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: "var(--space-5)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "var(--space-5)" }}>
         <div>
           <h2 style={sectionTitle}>{detail.label} balance sheet composition</h2>
           <CompositionBars
@@ -202,7 +202,7 @@ export function SolvencyLeverageSection({ detail }: Props) {
               muted
             />
           </div>
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)", marginTop: "var(--space-3)" }}>
+          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey-text)", marginTop: "var(--space-3)" }}>
             Gearing ratio = total liabilities ÷ equity. Below 1.0x means
             equity exceeds debt; a rising ratio signals increasing reliance
             on liabilities to fund the balance sheet. Debt Service Coverage
@@ -320,7 +320,7 @@ function BreakdownRow({
 }) {
   return (
     <div style={row}>
-      <span style={{ color: muted ? "var(--color-grey)" : "var(--color-ink)" }}>{label}</span>
+      <span style={{ color: muted ? "var(--color-grey-text)" : "var(--color-ink)" }}>{label}</span>
       <span
         className="num"
         style={{

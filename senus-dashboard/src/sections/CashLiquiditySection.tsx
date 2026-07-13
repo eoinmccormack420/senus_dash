@@ -31,12 +31,14 @@ import { boardApi, type PeriodDetail, num, formatEUR } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
 import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
 import { Skeleton } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
 import {
   barRadius,
   chartCard,
   chartColors,
   chartMargin,
   chartCursor,
+  CHART_HEIGHT,
   formatCompactEURTick,
   gridProps,
   selectedDot,
@@ -112,11 +114,7 @@ export function CashLiquiditySection({ detail }: Props) {
   const pl = detail.pl_statement;
 
   if (!cf) {
-    return (
-      <div style={{ color: "var(--color-grey)", padding: "var(--space-6) 0" }}>
-        No cash flow data available for {detail.label} yet.
-      </div>
-    );
+    return <EmptyState>No cash flow data available for {detail.label} yet.</EmptyState>;
   }
 
   const bridge = buildBridge(cf);
@@ -128,14 +126,14 @@ export function CashLiquiditySection({ detail }: Props) {
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h2 style={sectionTitle}>Cash balance trend</h2>
         {trendLoading ? (
-          <Skeleton height={250} radius="var(--radius-md)" />
+          <Skeleton height={CHART_HEIGHT} radius="var(--radius-md)" />
         ) : trend.length < 2 ? (
-          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey)", fontSize: "var(--text-sm)" }}>
+          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey-text)", fontSize: "var(--text-sm)" }}>
             Not enough historical data yet to show a trend.
           </div>
         ) : (
           <div className="print-avoid-break" style={chartCard} key={detail.id}>
-            <ResponsiveChartContainer height={250}>
+            <ResponsiveChartContainer height={CHART_HEIGHT}>
               <AreaChart data={trend} margin={chartMargin.standard}>
                 <defs>
                   <linearGradient id="cashFill" x1="0" y1="0" x2="0" y2="1">
@@ -183,7 +181,7 @@ export function CashLiquiditySection({ detail }: Props) {
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h2 style={sectionTitle}>{detail.label} cash bridge</h2>
         <div className="print-avoid-break" style={chartCard}>
-          <ResponsiveChartContainer height={270}>
+          <ResponsiveChartContainer height={CHART_HEIGHT}>
             <BarChart data={bridge.steps} margin={chartMargin.bridge}>
               <defs>
                 <linearGradient id="bridgeTotalFill" x1="0" y1="0" x2="0" y2="1">
@@ -269,7 +267,7 @@ export function CashLiquiditySection({ detail }: Props) {
             </>
           )}
         </div>
-        <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)", marginTop: "var(--space-3)" }}>
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey-text)", marginTop: "var(--space-3)" }}>
           Current ratio compares current assets to current liabilities —
           above 1.0 means short-term obligations are covered by
           short-term assets.
@@ -280,7 +278,7 @@ export function CashLiquiditySection({ detail }: Props) {
         <div className="print-keep-together" style={{ marginTop: "var(--space-6)" }}>
           <h2 style={sectionTitle}>EBITDA to Free Cash Flow bridge</h2>
           <div className="print-avoid-break" style={chartCard}>
-            <ResponsiveChartContainer height={270}>
+            <ResponsiveChartContainer height={CHART_HEIGHT}>
               <BarChart data={ebitdaBridge.steps} margin={chartMargin.bridge}>
                 <defs>
                   <linearGradient id="ebitdaBridgeTotalFill" x1="0" y1="0" x2="0" y2="1">
@@ -331,7 +329,7 @@ export function CashLiquiditySection({ detail }: Props) {
               </BarChart>
             </ResponsiveChartContainer>
           </div>
-          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey)", marginTop: "var(--space-3)" }}>
+          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-grey-text)", marginTop: "var(--space-3)" }}>
             "Other Adjustments" reconciles EBITDA down to the actual
             reported operating cash flow — it absorbs working-capital and
             timing effects not separately itemised in every source
@@ -449,7 +447,7 @@ function BreakdownRow({
 }) {
   return (
     <div style={row}>
-      <span style={{ color: muted ? "var(--color-grey)" : "var(--color-ink)" }}>{label}</span>
+      <span style={{ color: muted ? "var(--color-grey-text)" : "var(--color-ink)" }}>{label}</span>
       <span
         className="num"
         style={{

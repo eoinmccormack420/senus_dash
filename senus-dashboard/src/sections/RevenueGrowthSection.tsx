@@ -26,12 +26,14 @@ import { boardApi, type PeriodDetail, num, formatEUR, formatPct } from "../api/c
 import { AIInsightCard } from "../components/AIInsightCard";
 import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
 import { Skeleton } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
 import {
   barRadius,
   chartCard,
   chartColors,
   chartMargin,
   chartCursor,
+  CHART_HEIGHT_TALL,
   formatCompactEURTick,
   formatPercentTick,
   gridProps,
@@ -86,11 +88,7 @@ export function RevenueGrowthSection({ detail }: Props) {
   const pl = detail.pl_statement;
 
   if (!pl) {
-    return (
-      <div style={{ color: "var(--color-grey)", padding: "var(--space-6) 0" }}>
-        No P&amp;L data available for {detail.label} yet.
-      </div>
-    );
+    return <EmptyState>No P&amp;L data available for {detail.label} yet.</EmptyState>;
   }
 
   return (
@@ -100,14 +98,14 @@ export function RevenueGrowthSection({ detail }: Props) {
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h2 style={sectionTitle}>Revenue trend</h2>
         {trendLoading ? (
-          <Skeleton height={320} radius="var(--radius-md)" />
+          <Skeleton height={CHART_HEIGHT_TALL} radius="var(--radius-md)" />
         ) : trend.length < 2 ? (
-          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey)", fontSize: "var(--text-sm)" }}>
+          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey-text)", fontSize: "var(--text-sm)" }}>
             Not enough historical data yet to show a trend.
           </div>
         ) : (
           <div className="print-avoid-break" style={chartCard} key={detail.id}>
-            <ResponsiveChartContainer height={320}>
+            <ResponsiveChartContainer height={CHART_HEIGHT_TALL}>
               <ComposedChart data={trend} margin={chartMargin.dualAxis}>
                 <defs>
                   <linearGradient id="revenueActiveFill" x1="0" y1="0" x2="0" y2="1">
@@ -232,7 +230,7 @@ function BreakdownRow({
 }) {
   return (
     <div style={row}>
-      <span style={{ color: muted ? "var(--color-grey)" : "var(--color-ink)" }}>{label}</span>
+      <span style={{ color: muted ? "var(--color-grey-text)" : "var(--color-ink)" }}>{label}</span>
       <span
         className="num"
         style={{

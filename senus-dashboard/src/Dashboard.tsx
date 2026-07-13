@@ -116,7 +116,7 @@ export default function Dashboard({
         <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: "var(--text-lg)", color: "var(--color-ink)" }}>
           Can't reach the server
         </p>
-        <p style={{ color: "var(--color-grey)" }}>
+        <p style={{ color: "var(--color-grey-text)" }}>
           The board report couldn't load. Check your connection and try again.
         </p>
         <button
@@ -136,7 +136,7 @@ export default function Dashboard({
         <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: "var(--text-lg)", color: "var(--color-ink)" }}>
           Couldn't load the board report.
         </p>
-        <p style={{ color: "var(--color-grey)" }}>{error}</p>
+        <p style={{ color: "var(--color-grey-text)" }}>{error}</p>
       </div>
     );
   }
@@ -491,7 +491,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "var(--text-xs)",
     letterSpacing: "0.06em",
     textTransform: "uppercase",
-    color: "var(--color-grey)",
+    color: "var(--color-grey-text)",
     margin: 0,
     fontWeight: 600,
   },
@@ -548,7 +548,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "var(--font-body)",
     fontWeight: 500,
     fontSize: "var(--text-sm)",
-    color: "var(--color-grey)",
+    color: "var(--color-grey-text)",
     padding: "var(--space-2) var(--space-3)",
     border: "none",
     background: "transparent",
@@ -607,7 +607,7 @@ const styles: Record<string, React.CSSProperties> = {
   heroLabel: {
     fontSize: "var(--text-xs)",
     fontWeight: 600,
-    color: "var(--color-grey)",
+    color: "var(--color-grey-text)",
     margin: 0,
   },
   heroNumber: {
@@ -619,7 +619,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   heroCaption: {
     fontSize: "var(--text-xs)",
-    color: "var(--color-grey)",
+    color: "var(--color-grey-text)",
     margin: "var(--space-2) 0 0 0",
   },
   runwayTrack: {
@@ -647,7 +647,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "var(--font-body)",
     fontWeight: 500,
     fontSize: "var(--text-sm)",
-    color: "var(--color-grey)",
+    color: "var(--color-grey-text)",
     cursor: "pointer",
     whiteSpace: "nowrap",
   },

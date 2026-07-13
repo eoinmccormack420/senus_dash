@@ -315,7 +315,7 @@ const dividerLine: React.CSSProperties = {
 
 const dividerText: React.CSSProperties = {
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   textTransform: "uppercase",
   letterSpacing: "0.04em",
 };
@@ -326,7 +326,7 @@ const eyebrow: React.CSSProperties = {
   fontWeight: 600,
   letterSpacing: "0.06em",
   textTransform: "uppercase",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: 0,
 };
 
@@ -340,7 +340,7 @@ const title: React.CSSProperties = {
 
 const subtitle: React.CSSProperties = {
   fontSize: "var(--text-sm)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "0 0 var(--space-5) 0",
 };
 
@@ -364,7 +364,7 @@ const inputIcon: React.CSSProperties = {
   position: "absolute",
   left: 12,
   display: "flex",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   pointerEvents: "none",
 };
 
@@ -387,7 +387,7 @@ const toggleVisibility: React.CSSProperties = {
   background: "none",
   border: "none",
   padding: 4,
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   cursor: "pointer",
 };
 

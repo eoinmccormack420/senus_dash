@@ -99,7 +99,7 @@ const eyebrow: React.CSSProperties = {
   fontSize: "var(--text-xs)",
   letterSpacing: "0.06em",
   textTransform: "uppercase",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: 0,
   fontWeight: 600,
 };
@@ -122,7 +122,7 @@ const title: React.CSSProperties = {
 const backLink: React.CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: "var(--text-sm)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   textDecoration: "none",
 };
 
@@ -146,7 +146,7 @@ const navItem: React.CSSProperties = {
   fontFamily: "var(--font-body)",
   fontWeight: 500,
   fontSize: "var(--text-sm)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   padding: "var(--space-2) var(--space-3)",
   border: "none",
   background: "transparent",

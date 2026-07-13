@@ -75,7 +75,7 @@ const badge: React.CSSProperties = {
 const meta: React.CSSProperties = {
   fontFamily: "var(--font-mono)",
   fontSize: "var(--text-xs)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
 };
 
 const body: React.CSSProperties = {

@@ -76,7 +76,7 @@ const eyebrow: React.CSSProperties = {
   fontWeight: 600,
   letterSpacing: "0.06em",
   textTransform: "uppercase",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "0 0 var(--space-2) 0",
 };
 
@@ -90,7 +90,7 @@ const title: React.CSSProperties = {
 
 const message: React.CSSProperties = {
   fontSize: "var(--text-sm)",
-  color: "var(--color-grey)",
+  color: "var(--color-grey-text)",
   margin: "0 0 var(--space-5) 0",
 };
 
