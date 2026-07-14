@@ -7,6 +7,7 @@
 // getDerivedStateFromError/componentDidCatch.
 
 import { Component, type ReactNode } from "react";
+import { page, panel, eyebrow, title, message, button } from "../styles/ErrorBoundaryStyles";
 
 interface Props {
   children: ReactNode;
@@ -48,61 +49,3 @@ export class ErrorBoundary extends Component<Props, State> {
     );
   }
 }
-
-const page: React.CSSProperties = {
-  minHeight: "100vh",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "var(--color-paper)",
-  padding: "var(--space-4)",
-  boxSizing: "border-box",
-};
-
-const panel: React.CSSProperties = {
-  width: 360,
-  maxWidth: "100%",
-  boxSizing: "border-box",
-  padding: "var(--space-6) var(--space-5)",
-  background: "var(--color-paper-raised)",
-  borderRadius: "var(--radius-md)",
-  boxShadow: "var(--shadow-card-hover)",
-  textAlign: "center",
-};
-
-const eyebrow: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-xs)",
-  fontWeight: 600,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  color: "var(--color-grey-text)",
-  margin: "0 0 var(--space-2) 0",
-};
-
-const title: React.CSSProperties = {
-  fontFamily: "var(--font-display)",
-  fontWeight: 600,
-  fontSize: "var(--text-xl)",
-  color: "var(--color-ink)",
-  margin: "0 0 var(--space-2) 0",
-};
-
-const message: React.CSSProperties = {
-  fontSize: "var(--text-sm)",
-  color: "var(--color-grey-text)",
-  margin: "0 0 var(--space-5) 0",
-};
-
-const button: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 600,
-  fontSize: "var(--text-base)",
-  color: "var(--color-on-accent)",
-  background: "var(--color-forest)",
-  border: "none",
-  borderRadius: "var(--radius-sm)",
-  padding: "var(--space-3) var(--space-5)",
-  cursor: "pointer",
-  boxShadow: "var(--shadow-card)",
-};

@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { ecosystemChecklistApi, type EcosystemChecklistItem } from "../api/client";
 import { Skeleton } from "../components/Skeleton";
+import { title, caption, itemList, itemCard, itemTitle, itemDescription, fieldLabel, select, textarea, saveRow, saveButton, savedText, errorText } from "../styles/EcosystemChecklistSectionStyles";
 
 const STATUS_OPTIONS: EcosystemChecklistItem["status"][] = ["not_started", "in_progress", "complete"];
 const STATUS_LABEL: Record<EcosystemChecklistItem["status"], string> = {
@@ -124,105 +125,3 @@ export function EcosystemChecklistSection() {
     </div>
   );
 }
-
-const title: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 700,
-  fontSize: "var(--text-lg)",
-  color: "var(--color-ink)",
-  margin: "0 0 var(--space-2) 0",
-};
-
-const caption: React.CSSProperties = {
-  fontSize: "var(--text-xs)",
-  color: "var(--color-grey-text)",
-  margin: "0 0 var(--space-4) 0",
-};
-
-const itemList: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "var(--space-3)",
-};
-
-const itemCard: React.CSSProperties = {
-  border: "1px solid var(--color-grey-line)",
-  borderRadius: "var(--radius-sm)",
-  padding: "var(--space-3)",
-};
-
-const itemTitle: React.CSSProperties = {
-  fontSize: "var(--text-sm)",
-  fontWeight: 700,
-  color: "var(--color-ink)",
-  margin: 0,
-};
-
-const itemDescription: React.CSSProperties = {
-  fontSize: "var(--text-xs)",
-  color: "var(--color-grey-text)",
-  margin: "var(--space-1) 0 var(--space-3) 0",
-};
-
-const fieldLabel: React.CSSProperties = {
-  display: "block",
-  fontSize: "var(--text-xs)",
-  fontWeight: 600,
-  color: "var(--color-ink)",
-  marginBottom: "var(--space-3)",
-};
-
-const select: React.CSSProperties = {
-  display: "block",
-  marginTop: "var(--space-1)",
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-sm)",
-  padding: "var(--space-2)",
-  border: "1px solid var(--color-grey-line)",
-  borderRadius: "var(--radius-sm)",
-  width: "100%",
-  boxSizing: "border-box",
-};
-
-const textarea: React.CSSProperties = {
-  display: "block",
-  marginTop: "var(--space-1)",
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-sm)",
-  padding: "var(--space-2)",
-  border: "1px solid var(--color-grey-line)",
-  borderRadius: "var(--radius-sm)",
-  width: "100%",
-  boxSizing: "border-box",
-  resize: "vertical",
-};
-
-const saveRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "var(--space-3)",
-};
-
-const saveButton: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 600,
-  fontSize: "var(--text-sm)",
-  color: "#FFFFFF",
-  background: "var(--color-forest)",
-  border: "none",
-  borderRadius: "var(--radius-sm)",
-  padding: "var(--space-2) var(--space-3)",
-  cursor: "pointer",
-};
-
-const savedText: React.CSSProperties = {
-  fontSize: "var(--text-sm)",
-  color: "#1A8A5C",
-  fontWeight: 600,
-};
-
-const errorText: React.CSSProperties = {
-  fontSize: "var(--text-sm)",
-  color: "var(--color-rust)",
-  marginTop: "var(--space-2)",
-};

@@ -563,6 +563,41 @@ export const incubatorsApi = {
   refresh: (location?: string) => apiMutate<IncubatorsResponse>("/incubators/refresh/", "POST", { location }),
 };
 
+// --- "Ask the Data" grounded Q&A (board/extraction/qa.py) ---
+
+export interface BoardQuestionChunk {
+  source_document: string;
+  page_number: number | null;
+  chunk_index: number;
+  text: string;
+}
+
+export interface BoardQuestionTriple {
+  source: string;
+  edge_type: string;
+  target: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface BoardQuestionRecord {
+  id: number;
+  period: string;
+  asked_by: string | null;
+  question: string;
+  answer: string;
+  context_chunks: BoardQuestionChunk[];
+  figures_snapshot: Record<string, unknown>;
+  graph_triples: BoardQuestionTriple[];
+  model_used: string;
+  created_at: string;
+}
+
+export const askApi = {
+  ask: (question: string, period?: string) =>
+    apiMutate<BoardQuestionRecord>("/ask/", "POST", { question, period }),
+  history: () => apiFetch<BoardQuestionRecord[]>("/ask/history/"),
+};
+
 // A configured board report — which sections, for whom, why (see
 // board/models.py's ReportSpec). tailored_narrative/narrative_* are
 // read-only here — they only change via generateNarrative/approveNarrative.

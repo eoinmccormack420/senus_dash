@@ -45,6 +45,8 @@ from .views import (
     DriveFoldersView,
     IncubatorsView,
     RefreshIncubatorsView,
+    AskBoardQuestionView,
+    BoardQuestionHistoryView,
 )
 
 router = DefaultRouter()
@@ -77,4 +79,6 @@ urlpatterns = router.urls + [
     path("drive/folders/", DriveFoldersView.as_view(), name="drive-folders"),
     path("incubators/", IncubatorsView.as_view(), name="incubators"),
     path("incubators/refresh/", RefreshIncubatorsView.as_view(), name="incubators-refresh"),
+    path("ask/", AskBoardQuestionView.as_view(), name="ask-board-question"),
+    path("ask/history/", BoardQuestionHistoryView.as_view(), name="ask-board-question-history"),
 ]

@@ -48,6 +48,16 @@ export function MapPinIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function ChatIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.5 0-2.9-.38-4.1-1.05L3 20l1.05-5.4A8.5 8.5 0 1 1 21 11.5z" />
+      <path d="M8.5 10.5h7" />
+      <path d="M8.5 13.5h4" />
+    </svg>
+  );
+}
+
 export function SparkleIcon({ size = 12 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none">

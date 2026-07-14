@@ -50,6 +50,7 @@ from .models import (
     DriveSettings,
     IncubatorSettings,
     NearbyIncubator,
+    BoardQuestion,
 )
 from .serializers import (
     PeriodListSerializer,
@@ -67,6 +68,7 @@ from .serializers import (
     DriveSettingsSerializer,
     IncubatorSettingsSerializer,
     NearbyIncubatorSerializer,
+    BoardQuestionSerializer,
 )
 from .alerts import evaluate_board_alerts, send_board_alert_digest
 from .extraction.commentary import generate_insights_for_period
@@ -78,6 +80,7 @@ from .extraction.report_deck import generate_deck as build_deck_bytes
 from .extraction.drive_sync import sync_drive_folder_in_background, is_sync_stale
 from .extraction import drive_client
 from .extraction.places_client import refresh_nearby_incubators
+from .extraction.qa import answer_board_question
 from .extraction.pipeline import promote_attempt
 from .extraction.email_notifications import notify_insight_subscribers, send_test_email
 from .extraction.notifications import send_test_slack_message
@@ -611,6 +614,51 @@ class RefreshIncubatorsView(APIView):
                 "incubators": NearbyIncubatorSerializer(NearbyIncubator.objects.all(), many=True).data,
             }
         )
+
+
+class AskBoardQuestionView(APIView):
+    """
+    POST { "question": "...", "period": "HY2026" } -> a grounded answer
+    over the hybrid RAG layer (board/extraction/qa.py), persisted as a
+    BoardQuestion audit row and returned serialized. Any authenticated
+    user — this is board-facing, same access level as the dashboard
+    itself. period is optional and defaults to the latest, same rule as
+    GenerateAdvisoryGoalsView.
+
+    Gemini/embedding failures surface as 400s with the wrapped message,
+    never 500s — house rule for every Gemini-backed endpoint.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        question = (request.data.get("question") or "").strip()
+        if not question:
+            return Response({"detail": "Missing question."}, status=400)
+
+        period_label = request.data.get("period")
+        if not period_label:
+            latest = FinancialPeriod.objects.order_by("-end_date").first()
+            if latest is None:
+                return Response({"detail": "No financial periods have been seeded yet."}, status=400)
+            period_label = latest.label
+
+        try:
+            board_question = answer_board_question(period_label, question, user=request.user)
+        except FinancialPeriod.DoesNotExist:
+            return Response({"detail": f"No period with label '{period_label}'."}, status=400)
+        except RuntimeError as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        return Response(BoardQuestionSerializer(board_question).data)
+
+
+class BoardQuestionHistoryView(APIView):
+    """GET -> the 20 most recent Q&A audit rows, newest first. Any authenticated user."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        questions = BoardQuestion.objects.select_related("period", "asked_by")[:20]
+        return Response(BoardQuestionSerializer(questions, many=True).data)
 
 
 class TestSlackNotificationView(APIView):

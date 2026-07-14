@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { adminApi, type AllowedEmail } from "../api/client";
 import { Skeleton } from "../components/Skeleton";
+import { title, caption, emailList, emailRow, removeButton, addForm, addInput, addButton, errorText } from "../styles/SignInAccessSectionStyles";
 
 export function SignInAccessSection({ currentUserEmail }: { currentUserEmail: string }) {
   const [emails, setEmails] = useState<AllowedEmail[]>([]);
@@ -102,81 +103,3 @@ export function SignInAccessSection({ currentUserEmail }: { currentUserEmail: st
     </div>
   );
 }
-
-const title: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 700,
-  fontSize: "var(--text-lg)",
-  color: "var(--color-ink)",
-  margin: "0 0 var(--space-2) 0",
-};
-
-const caption: React.CSSProperties = {
-  fontSize: "var(--text-xs)",
-  color: "var(--color-grey-text)",
-  margin: "0 0 var(--space-4) 0",
-};
-
-const emailList: React.CSSProperties = {
-  listStyle: "none",
-  margin: 0,
-  padding: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: "var(--space-2)",
-};
-
-const emailRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  fontSize: "var(--text-sm)",
-  color: "var(--color-ink)",
-  wordBreak: "break-all",
-  padding: "var(--space-2) 0",
-  borderBottom: "1px solid var(--color-grey-line)",
-};
-
-const removeButton: React.CSSProperties = {
-  fontSize: "var(--text-xs)",
-  color: "var(--color-rust)",
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  flexShrink: 0,
-  marginLeft: "var(--space-3)",
-};
-
-const addForm: React.CSSProperties = {
-  display: "flex",
-  gap: "var(--space-2)",
-  marginTop: "var(--space-4)",
-};
-
-const addInput: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-sm)",
-  padding: "var(--space-2)",
-  border: "1px solid var(--color-grey-line)",
-  borderRadius: "var(--radius-sm)",
-};
-
-const addButton: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 600,
-  fontSize: "var(--text-sm)",
-  color: "#FFFFFF",
-  background: "var(--color-forest)",
-  border: "none",
-  borderRadius: "var(--radius-sm)",
-  padding: "var(--space-2) var(--space-3)",
-  cursor: "pointer",
-};
-
-const errorText: React.CSSProperties = {
-  fontSize: "var(--text-xs)",
-  color: "var(--color-rust)",
-  margin: "var(--space-2) 0 0 0",
-};

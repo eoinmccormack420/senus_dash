@@ -9,6 +9,7 @@
 import { type PeriodDetail, formatEUR, formatPct } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
 import EmptyState from "../components/EmptyState";
+import { sectionTitle, breakdownGrid, row } from "../styles/RevenueGrowthSectionStyles";
 
 interface Props {
   detail: PeriodDetail; // the currently selected period, from Dashboard
@@ -83,27 +84,3 @@ function BreakdownRow({
     </div>
   );
 }
-
-const sectionTitle: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 600,
-  fontSize: "var(--text-lg)",
-  color: "var(--color-ink)",
-  marginBottom: "var(--space-4)",
-};
-
-const breakdownGrid: React.CSSProperties = {
-  background: "var(--color-paper-raised)",
-  border: "1px solid var(--color-grey-line)",
-  borderRadius: "var(--radius-md)",
-  boxShadow: "var(--shadow-card)",
-  overflow: "hidden",
-};
-
-const row: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "var(--space-2) var(--space-4)",
-  borderBottom: "1px solid var(--color-grey-line)",
-  fontSize: "var(--text-base)",
-};

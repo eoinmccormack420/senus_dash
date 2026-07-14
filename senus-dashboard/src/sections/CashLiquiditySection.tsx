@@ -46,6 +46,7 @@ import {
   xAxisProps,
   yAxisProps,
 } from "../styles/chartTheme";
+import { sectionTitle, breakdownGrid, row } from "../styles/CashLiquiditySectionStyles";
 
 interface Props {
   detail: PeriodDetail;
@@ -372,27 +373,3 @@ function BreakdownRow({
     </div>
   );
 }
-
-const sectionTitle: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 600,
-  fontSize: "var(--text-lg)",
-  color: "var(--color-ink)",
-  marginBottom: "var(--space-4)",
-};
-
-const breakdownGrid: React.CSSProperties = {
-  background: "var(--color-paper-raised)",
-  border: "1px solid var(--color-grey-line)",
-  borderRadius: "var(--radius-md)",
-  boxShadow: "var(--shadow-card)",
-  overflow: "hidden",
-};
-
-const row: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "var(--space-2) var(--space-4)",
-  borderBottom: "1px solid var(--color-grey-line)",
-  fontSize: "var(--text-base)",
-};

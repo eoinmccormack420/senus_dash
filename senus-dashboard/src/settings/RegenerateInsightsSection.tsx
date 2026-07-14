@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { adminApi, type RegenerateInsightsResult } from "../api/client";
+import { title, caption, regenerateButton, resultBox, resultSummary, resultList, resultRow, resultSection, resultStatus, resultDetail, errorText } from "../styles/RegenerateInsightsSectionStyles";
 
 export function RegenerateInsightsSection() {
   const [loading, setLoading] = useState(false);
@@ -68,81 +69,3 @@ function statusStyle(status: string): React.CSSProperties {
   if (status === "error") return { color: "var(--color-rust)" };
   return { color: "var(--color-grey-text)" };
 }
-
-const title: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 700,
-  fontSize: "var(--text-lg)",
-  color: "var(--color-ink)",
-  margin: "0 0 var(--space-2) 0",
-};
-
-const caption: React.CSSProperties = {
-  fontSize: "var(--text-xs)",
-  color: "var(--color-grey-text)",
-  margin: "0 0 var(--space-4) 0",
-};
-
-const regenerateButton: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 600,
-  fontSize: "var(--text-sm)",
-  color: "var(--color-on-accent)",
-  background: "var(--color-forest)",
-  border: "none",
-  borderRadius: "var(--radius-sm)",
-  padding: "var(--space-2) var(--space-3)",
-  cursor: "pointer",
-};
-
-const resultBox: React.CSSProperties = {
-  marginTop: "var(--space-4)",
-};
-
-const resultSummary: React.CSSProperties = {
-  fontSize: "var(--text-sm)",
-  fontWeight: 600,
-  color: "var(--color-ink)",
-  margin: "0 0 var(--space-2) 0",
-};
-
-const resultList: React.CSSProperties = {
-  listStyle: "none",
-  margin: 0,
-  padding: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: "var(--space-1)",
-};
-
-const resultRow: React.CSSProperties = {
-  display: "flex",
-  gap: "var(--space-2)",
-  fontSize: "var(--text-xs)",
-  padding: "var(--space-1) 0",
-  borderBottom: "1px solid var(--color-grey-line)",
-};
-
-const resultSection: React.CSSProperties = {
-  color: "var(--color-ink)",
-  fontWeight: 600,
-  minWidth: 120,
-};
-
-const resultStatus: React.CSSProperties = {
-  minWidth: 70,
-  fontWeight: 600,
-};
-
-const resultDetail: React.CSSProperties = {
-  color: "var(--color-grey-text)",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-const errorText: React.CSSProperties = {
-  fontSize: "var(--text-xs)",
-  color: "var(--color-rust)",
-  margin: "var(--space-2) 0 0 0",
-};

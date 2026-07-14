@@ -19,6 +19,7 @@ import { StrategicGoalsSection } from "./settings/StrategicGoalsSection";
 import { EcosystemChecklistSection } from "./settings/EcosystemChecklistSection";
 import { DriveSection } from "./settings/DriveSection";
 import "./styles/tokens.css";
+import { page, header, eyebrow, titleRow, title, backLink, body, sidebar, navItem, navItemActive, content } from "./styles/SettingsPageStyles";
 
 const ALL_SECTIONS = [
   { key: "notifications", label: "Notifications", adminOnly: false },
@@ -90,94 +91,3 @@ export default function SettingsPage({
     </div>
   );
 }
-
-const page: React.CSSProperties = {
-  maxWidth: 1200,
-  margin: "0 auto",
-  padding: "var(--space-6) var(--space-4)",
-};
-
-const header: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-end",
-  flexWrap: "wrap",
-  gap: "var(--space-4)",
-  marginBottom: "var(--space-5)",
-};
-
-const eyebrow: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-xs)",
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  color: "var(--color-grey-text)",
-  margin: 0,
-  fontWeight: 600,
-};
-
-const titleRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "var(--space-3)",
-  flexWrap: "wrap",
-};
-
-const title: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 700,
-  fontSize: "var(--text-xl)",
-  color: "var(--color-ink)",
-  margin: "var(--space-1) 0 0 0",
-};
-
-const backLink: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-sm)",
-  color: "var(--color-grey-text)",
-  textDecoration: "none",
-};
-
-const body: React.CSSProperties = {
-  display: "flex",
-  gap: "var(--space-5)",
-  alignItems: "flex-start",
-  flexWrap: "wrap",
-};
-
-const sidebar: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "var(--space-1)",
-  width: 220,
-  flexShrink: 0,
-};
-
-const navItem: React.CSSProperties = {
-  textAlign: "left",
-  fontFamily: "var(--font-body)",
-  fontWeight: 500,
-  fontSize: "var(--text-sm)",
-  color: "var(--color-grey-text)",
-  padding: "var(--space-2) var(--space-3)",
-  border: "none",
-  background: "transparent",
-  borderRadius: "var(--radius-sm)",
-  cursor: "pointer",
-};
-
-const navItemActive: React.CSSProperties = {
-  background: "var(--color-paper-raised)",
-  color: "var(--color-ink)",
-  fontWeight: 600,
-  boxShadow: "var(--shadow-card)",
-};
-
-const content: React.CSSProperties = {
-  flex: 1,
-  minWidth: 280,
-  background: "var(--color-paper-raised)",
-  borderRadius: "var(--radius-md)",
-  boxShadow: "var(--shadow-card)",
-  padding: "var(--space-5)",
-};

@@ -17,6 +17,7 @@ import Dashboard from "./Dashboard";
 import SettingsPage from "./SettingsPage";
 import FundingReadinessPage from "./FundingReadinessPage";
 import ReportBuilderPage from "./ReportBuilderPage";
+import AskDataPage from "./AskDataPage";
 import PrintReportPage from "./PrintReportPage";
 import { LoginScreen } from "./LoginScreen";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -58,6 +59,7 @@ function AppContent() {
         <Route path="/settings" element={<SettingsPage currentUser={currentUser} onSignOut={handleSignOut} />} />
         <Route path="/readiness" element={<FundingReadinessPage currentUser={currentUser} onSignOut={handleSignOut} />} />
         <Route path="/report-builder" element={<ReportBuilderPage currentUser={currentUser} onSignOut={handleSignOut} />} />
+        <Route path="/ask" element={<AskDataPage currentUser={currentUser} onSignOut={handleSignOut} />} />
         <Route path="/print/report/:specId" element={<PrintReportPage />} />
         <Route path="/*" element={<Dashboard currentUser={currentUser} onSignOut={handleSignOut} />} />
       </Routes>

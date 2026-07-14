@@ -10,6 +10,7 @@
 // generated for this period.
 
 import type { AIInsight } from "../api/client";
+import { wrapper, header, badge, meta, body } from "../styles/AIInsightCardStyles";
 
 interface Props {
   insight: AIInsight | undefined;
@@ -45,44 +46,3 @@ function SparkleIcon() {
     </svg>
   );
 }
-
-const wrapper: React.CSSProperties = {
-  background: "var(--color-forest-soft)",
-  border: "1px solid var(--color-forest)",
-  borderRadius: "var(--radius-md)",
-  padding: "var(--space-4)",
-  marginBottom: "var(--space-5)",
-};
-
-const header: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: "var(--space-2)",
-};
-
-const badge: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-xs)",
-  fontWeight: 700,
-  color: "var(--color-forest)",
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-};
-
-const meta: React.CSSProperties = {
-  fontFamily: "var(--font-mono)",
-  fontSize: "var(--text-xs)",
-  color: "var(--color-grey-text)",
-};
-
-const body: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontSize: "var(--text-sm)",
-  lineHeight: 1.6,
-  color: "var(--color-ink)",
-  margin: 0,
-  overflowWrap: "break-word",
-};

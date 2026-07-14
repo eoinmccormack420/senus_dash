@@ -978,3 +978,36 @@ class KnowledgeGraphEdge(models.Model):
 
     def __str__(self):
         return f"{self.source.name} -[{self.edge_type}]-> {self.target.name}"
+
+
+class BoardQuestion(models.Model):
+    """
+    Audit log of every "Ask the Data" question and its grounded answer
+    (board/extraction/qa.py) — same log-everything philosophy as
+    ExtractionAttempt/AIInsight: the board should always be able to see
+    what was asked, what the AI answered, and exactly what data grounded
+    that answer.
+
+    The snapshot fields copy the retrieval results (chunks, figures,
+    graph triples) at answer time rather than FK-ing them, so the log
+    stays truthful even after a re-ingestion replaces the vector store
+    or the underlying figures change.
+    """
+
+    period = models.ForeignKey(FinancialPeriod, on_delete=models.CASCADE, related_name="board_questions")
+    asked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    question = models.TextField()
+    answer = models.TextField()
+    context_chunks = models.JSONField(default=list, blank=True)
+    figures_snapshot = models.JSONField(default=dict, blank=True)
+    graph_triples = models.JSONField(default=list, blank=True)
+    model_used = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # -id tiebreaker: questions asked in quick succession can share
+        # a created_at timestamp, and "newest first" must stay stable.
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"Q: {self.question[:60]} — {self.period.label}"

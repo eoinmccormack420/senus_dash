@@ -8,6 +8,7 @@
 
 import type { PeriodDetail } from "../api/client";
 import EmptyState from "../components/EmptyState";
+import { card, cardHeader, cardTitle, modelBadge, cardBody, cardTimestamp, codeStyle } from "../styles/AIInsightsSectionStyles";
 
 interface Props {
   detail: PeriodDetail;
@@ -57,60 +58,3 @@ export function AIInsightsSection({ detail }: Props) {
     </article>
   );
 }
-
-const card: React.CSSProperties = {
-  border: "1px solid var(--color-forest)",
-  background: "var(--color-forest-soft)",
-  borderRadius: "var(--radius-md)",
-  boxShadow: "var(--shadow-card)",
-  padding: "var(--space-5)",
-};
-
-const cardHeader: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: "var(--space-3)",
-};
-
-const cardTitle: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 600,
-  fontSize: "var(--text-lg)",
-  color: "var(--color-ink)",
-  margin: 0,
-};
-
-const modelBadge: React.CSSProperties = {
-  fontFamily: "var(--font-mono)",
-  fontSize: "var(--text-xs)",
-  color: "var(--color-grey-text)",
-  border: "1px solid var(--color-grey-line)",
-  borderRadius: "var(--radius-sm)",
-  padding: "2px 8px",
-};
-
-const cardBody: React.CSSProperties = {
-  fontFamily: "var(--font-display)",
-  fontSize: "var(--text-base)",
-  lineHeight: 1.7,
-  color: "var(--color-ink)",
-  margin: 0,
-  overflowWrap: "break-word",
-  whiteSpace: "pre-wrap", // preserves the "- " Key risks lines Gemini leads with
-};
-
-const cardTimestamp: React.CSSProperties = {
-  fontSize: "var(--text-xs)",
-  color: "var(--color-grey-text)",
-  marginTop: "var(--space-3)",
-  marginBottom: 0,
-};
-
-const codeStyle: React.CSSProperties = {
-  fontFamily: "var(--font-mono)",
-  fontSize: "var(--text-xs)",
-  background: "var(--color-paper)",
-  padding: "2px 6px",
-  borderRadius: "var(--radius-sm)",
-};

@@ -49,6 +49,7 @@ import {
   xAxisProps,
   yAxisProps,
 } from "../styles/chartTheme";
+import { caption, sectionTitle } from "../styles/HistorySectionStyles";
 
 interface RevenuePoint {
   label: string;
@@ -443,17 +444,3 @@ function TrendCard({
     </div>
   );
 }
-
-const caption: React.CSSProperties = {
-  fontSize: "var(--text-sm)",
-  color: "var(--color-grey-text)",
-  margin: "0 0 var(--space-5) 0",
-};
-
-const sectionTitle: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 600,
-  fontSize: "var(--text-lg)",
-  color: "var(--color-ink)",
-  marginBottom: "var(--space-4)",
-};

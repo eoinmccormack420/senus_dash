@@ -38,6 +38,7 @@ from .models import (
     DriveSettings,
     IncubatorSettings,
     NearbyIncubator,
+    BoardQuestion,
 )
 from .alerts import evaluate_board_alerts
 from .readiness import compute_readiness_score, compute_funding_milestones
@@ -393,6 +394,29 @@ class NearbyIncubatorSerializer(serializers.ModelSerializer):
     class Meta:
         model = NearbyIncubator
         fields = ["place_id", "name", "address", "website", "rating", "maps_url"]
+        read_only_fields = fields
+
+
+class BoardQuestionSerializer(serializers.ModelSerializer):
+    """Read-only — rows are created only by qa.answer_board_question, never by a client PATCH."""
+
+    period = serializers.CharField(source="period.label", read_only=True)
+    asked_by = serializers.CharField(source="asked_by.username", read_only=True, default=None)
+
+    class Meta:
+        model = BoardQuestion
+        fields = [
+            "id",
+            "period",
+            "asked_by",
+            "question",
+            "answer",
+            "context_chunks",
+            "figures_snapshot",
+            "graph_triples",
+            "model_used",
+            "created_at",
+        ]
         read_only_fields = fields
 
 
