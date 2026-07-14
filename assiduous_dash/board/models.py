@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.db import models
+from pgvector.django import VectorField
 
 class FinancialPeriod(models.Model):
     """Represents a reporting period — annual or half-year."""
@@ -869,3 +870,111 @@ class NearbyIncubator(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class VectorDocumentChunk(models.Model):
+    """
+    One embedded text snippet from a real source document (prospectus
+    footnote, Euronext rulebook page, EI criteria doc) — the vector half
+    of the hybrid RAG layer (board/extraction/retrieval.py).
+
+    embedding is a pgvector column (1536-dim, gemini-embedding-001
+    truncated via MRL and re-normalized — see extraction/embeddings.py).
+    On the SQLite dev database the column stores as text and similarity
+    is computed in Python (retrieval._nearest_chunks); the HNSW index
+    exists only on Postgres, created by a vendor-guarded migration.
+
+    period is nullable on purpose: a rulebook or listing-criteria
+    document isn't tied to any FinancialPeriod, while an annual-report
+    footnote is. statement_kind narrows a chunk to one statement the
+    same way ExtractionAttempt.statement_kind does — statements are
+    OneToOne with period, so no GenericForeignKey is needed.
+    """
+
+    period = models.ForeignKey(
+        FinancialPeriod, on_delete=models.CASCADE, null=True, blank=True, related_name="document_chunks"
+    )
+    statement_kind = models.CharField(
+        max_length=20, choices=ExtractionAttempt.STATEMENT_CHOICES, blank=True
+    )
+    source_document = models.CharField(max_length=500)
+    page_number = models.PositiveIntegerField(null=True, blank=True)
+    chunk_index = models.PositiveIntegerField()
+    text = models.TextField()
+    embedding = VectorField(dimensions=1536)
+    embedding_model = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["source_document", "chunk_index"]
+        ordering = ["source_document", "chunk_index"]
+
+    def __str__(self):
+        return f"{self.source_document} [chunk {self.chunk_index}]"
+
+
+class KnowledgeGraphNode(models.Model):
+    """
+    An ecosystem entity in the regulatory knowledge graph: a specific
+    Euronext rule, an Enterprise Ireland benchmark, a subsidiary, a
+    regulator. Curated via Django admin or shell — never fabricated by
+    a seed migration, per this project's real-facts-only rule; the
+    optional source_chunk FK ties a node back to the actual document
+    text it came from, so every graph fact stays traceable to a source.
+    """
+
+    NODE_TYPE_CHOICES = [
+        ("euronext_rule", "Euronext Rule"),
+        ("ei_benchmark", "EI Benchmark"),
+        ("subsidiary", "Subsidiary Company"),
+        ("regulator", "Regulator"),
+        ("requirement", "Requirement"),
+        ("other", "Other"),
+    ]
+
+    node_type = models.CharField(max_length=30, choices=NODE_TYPE_CHOICES)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    source_chunk = models.ForeignKey(
+        VectorDocumentChunk, on_delete=models.SET_NULL, null=True, blank=True, related_name="graph_nodes"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["node_type", "name"]
+        ordering = ["node_type", "name"]
+
+    def __str__(self):
+        return f"{self.get_node_type_display()}: {self.name}"
+
+
+class KnowledgeGraphEdge(models.Model):
+    """
+    A directed, typed relationship between two graph nodes, e.g.
+    (Senus PLC) -[COMPLIES_WITH]-> (Euronext Rule 2.1), with free-form
+    metadata for qualifiers (thresholds, effective dates). Traversed
+    breadth-first by retrieval.execute_hybrid_rag_query to pull the
+    regulatory dependencies around whatever the vector search surfaced.
+    """
+
+    EDGE_TYPE_CHOICES = [
+        ("COMPLIES_WITH", "Complies with"),
+        ("PARENT_OF", "Parent of"),
+        ("REQUIRES_AUDIT_YEARS", "Requires audit years"),
+        ("REQUIRES", "Requires"),
+        ("GOVERNED_BY", "Governed by"),
+        ("RELATED_TO", "Related to"),
+    ]
+
+    source = models.ForeignKey(KnowledgeGraphNode, on_delete=models.CASCADE, related_name="outgoing_edges")
+    target = models.ForeignKey(KnowledgeGraphNode, on_delete=models.CASCADE, related_name="incoming_edges")
+    edge_type = models.CharField(max_length=30, choices=EDGE_TYPE_CHOICES)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["source", "target", "edge_type"]
+
+    def __str__(self):
+        return f"{self.source.name} -[{self.edge_type}]-> {self.target.name}"

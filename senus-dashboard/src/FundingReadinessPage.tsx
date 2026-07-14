@@ -24,6 +24,7 @@ import { FundingMarathonProgress } from "./components/FundingMarathonProgress";
 import { FundingRoadmap } from "./components/FundingRoadmap";
 import { NearbyIncubators } from "./components/NearbyIncubators";
 import { Skeleton } from "./components/Skeleton";
+import { MapPinIcon } from "./components/icons";
 import "./styles/tokens.css";
 
 export default function FundingReadinessPage({
@@ -84,7 +85,12 @@ export default function FundingReadinessPage({
 
           <FundingMarathonProgress readiness={detail.funding_readiness} goals={detail.advisory_goals} />
 
-          <h2 style={sectionHeading}>Irish Startup Ecosystem</h2>
+          <div style={sectionHeadingRow}>
+            <span style={sectionIconBadge}>
+              <MapPinIcon size={14} />
+            </span>
+            <h2 style={sectionHeading}>Irish Startup Ecosystem</h2>
+          </div>
           <NearbyIncubators isStaff={!!currentUser?.is_staff} />
         </>
       )}
@@ -105,6 +111,10 @@ const header: React.CSSProperties = {
   flexWrap: "wrap",
   gap: "var(--space-4)",
   marginBottom: "var(--space-5)",
+  padding: "var(--space-5)",
+  borderRadius: "var(--radius-md)",
+  background: "linear-gradient(135deg, var(--color-forest-soft) 0%, var(--color-paper-raised) 65%)",
+  border: "1px solid var(--color-grey-line)",
 };
 
 const eyebrow: React.CSSProperties = {
@@ -125,8 +135,8 @@ const titleRow: React.CSSProperties = {
 };
 
 const title: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 700,
+  fontFamily: "var(--font-display)",
+  fontWeight: 600,
   fontSize: "var(--text-xl)",
   color: "var(--color-ink)",
   margin: "var(--space-1) 0 0 0",
@@ -146,12 +156,31 @@ const subheading: React.CSSProperties = {
   margin: "var(--space-1) 0 0 0",
 };
 
+const sectionHeadingRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "var(--space-2)",
+  margin: "var(--space-4) 0 var(--space-3) 0",
+};
+
+const sectionIconBadge: React.CSSProperties = {
+  flexShrink: 0,
+  width: 26,
+  height: 26,
+  borderRadius: "var(--radius-sm)",
+  background: "var(--color-forest-soft)",
+  color: "var(--color-forest)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
 const sectionHeading: React.CSSProperties = {
   fontFamily: "var(--font-body)",
   fontWeight: 700,
   fontSize: "var(--text-lg)",
   color: "var(--color-ink)",
-  margin: "var(--space-4) 0 var(--space-3) 0",
+  margin: 0,
 };
 
 const skeletonStack: React.CSSProperties = {

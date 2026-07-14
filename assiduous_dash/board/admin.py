@@ -73,3 +73,29 @@ class ExtractionAttemptAdmin(admin.ModelAdmin):
             f"Promoted {promoted} attempt(s) to live data. Skipped {skipped} "
             f"(not schema_valid/cross_check_pass, or failed on promotion)."
         )
+
+# --- Hybrid RAG knowledge layer (see board/extraction/retrieval.py) ---
+# The knowledge graph is curated here (or via shell), never seeded with
+# fabricated regulatory content — each node can cite the real document
+# chunk it came from via source_chunk.
+
+@admin.register(VectorDocumentChunk)
+class VectorDocumentChunkAdmin(admin.ModelAdmin):
+    list_display = ["source_document", "chunk_index", "period", "statement_kind", "page_number", "created_at"]
+    list_filter = ["source_document", "period", "statement_kind"]
+    search_fields = ["text", "source_document"]
+    readonly_fields = ["embedding", "embedding_model", "created_at"]
+
+
+@admin.register(KnowledgeGraphNode)
+class KnowledgeGraphNodeAdmin(admin.ModelAdmin):
+    list_display = ["name", "node_type", "source_chunk", "created_at"]
+    list_filter = ["node_type"]
+    search_fields = ["name", "description"]
+
+
+@admin.register(KnowledgeGraphEdge)
+class KnowledgeGraphEdgeAdmin(admin.ModelAdmin):
+    list_display = ["source", "edge_type", "target", "created_at"]
+    list_filter = ["edge_type"]
+    search_fields = ["source__name", "target__name"]

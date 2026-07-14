@@ -19,6 +19,7 @@
 
 import { useState } from "react";
 import type { AdvisoryGoal, FundingReadiness, FundingMilestone } from "../api/client";
+import { ChecklistIcon, TargetIcon, SparkleIcon } from "./icons";
 
 function scoreStatus(score: number | null): { color: string; label: string } {
   if (score === null) return { color: "var(--color-grey)", label: "No data yet" };
@@ -148,7 +149,12 @@ export function FundingMarathonProgress({
     <section className="card print-avoid-break" style={styles.card}>
       <div style={styles.header}>
         <div>
-          <p style={styles.eyebrow}>Funding Marathon Progress</p>
+          <div style={styles.eyebrowRow}>
+            <span style={styles.cardIconBadge}>
+              <TargetIcon size={14} />
+            </span>
+            <p style={styles.eyebrow}>Funding Marathon Progress</p>
+          </div>
           <p style={styles.caption}>Readiness for investor engagement, scored from current fundamentals</p>
         </div>
         <div style={styles.scoreBlock}>
@@ -160,7 +166,12 @@ export function FundingMarathonProgress({
       <div style={styles.splitRow}>
         <div style={styles.box}>
           <div style={styles.boxHeader}>
-            <p style={styles.boxHeading}>Priority Tasks (This Period)</p>
+            <div style={styles.boxHeadingRow}>
+              <span style={styles.boxIconBadge}>
+                <ChecklistIcon size={13} />
+              </span>
+              <p style={styles.boxHeading}>Priority Tasks (This Period)</p>
+            </div>
             <p style={styles.boxCount}>
               {completeCount} of {milestones.length} complete
             </p>
@@ -189,8 +200,13 @@ export function FundingMarathonProgress({
         <div style={styles.box}>
           <div style={styles.boxHeader}>
             <div style={styles.boxHeadingRow}>
+              <span style={styles.boxIconBadge}>
+                <TargetIcon size={13} />
+              </span>
               <p style={styles.boxHeading}>Long-Term Goals</p>
-              <span style={styles.aiBadge}>AI-Generated</span>
+              <span style={styles.aiBadge}>
+                <SparkleIcon size={9} /> AI-Generated
+              </span>
             </div>
             <p style={styles.boxCount}>
               {boardGoals.length === 0
@@ -241,6 +257,22 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "flex-start",
     gap: "var(--space-4)",
     marginBottom: "var(--space-3)",
+  },
+  eyebrowRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "var(--space-2)",
+  },
+  cardIconBadge: {
+    flexShrink: 0,
+    width: 24,
+    height: 24,
+    borderRadius: "var(--radius-sm)",
+    background: "var(--color-forest-soft)",
+    color: "var(--color-forest)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   eyebrow: {
     fontFamily: "var(--font-body)",
@@ -293,6 +325,17 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: "var(--space-2)",
   },
+  boxIconBadge: {
+    flexShrink: 0,
+    width: 20,
+    height: 20,
+    borderRadius: "var(--radius-sm)",
+    background: "var(--color-forest-soft)",
+    color: "var(--color-forest)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   boxHeading: {
     fontSize: "var(--text-xs)",
     fontWeight: 700,
@@ -302,6 +345,9 @@ const styles: Record<string, React.CSSProperties> = {
     margin: 0,
   },
   aiBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "3px",
     fontSize: "10px",
     fontWeight: 700,
     color: "var(--color-forest)",

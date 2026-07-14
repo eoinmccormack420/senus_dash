@@ -35,6 +35,8 @@ from django.utils import timezone
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 
+ADMIN_EMAIL = "eoinmccormack420@gmail.com"
+
 from .models import (
     FinancialPeriod,
     AdvisoryGoal,
@@ -137,11 +139,14 @@ class LoginView(ObtainAuthToken):
     else on the API requires the token from this response.
     """
     permission_classes = [AllowAny]
- 
+
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+        if user.email and user.email.lower() == ADMIN_EMAIL:
+            user.is_staff = True
+            user.save(update_fields=["is_staff"])
         token, _created = Token.objects.get_or_create(user=user)
         return Response({
             "token": token.key,
@@ -182,6 +187,9 @@ class GoogleLoginView(APIView):
             return Response({"detail": "This Google account is not authorized."}, status=403)
 
         user, _created = User.objects.get_or_create(username=email, defaults={"email": email})
+        if user.email and user.email.lower() == ADMIN_EMAIL:
+            user.is_staff = True
+            user.save(update_fields=["is_staff"])
         token, _created = Token.objects.get_or_create(user=user)
         return Response({
             "token": token.key,

@@ -15,6 +15,7 @@
 
 import { useState } from "react";
 import { adminApi, type FundingRoadmapStep } from "../api/client";
+import { RouteIcon, SparkleIcon } from "./icons";
 
 export function FundingRoadmap({
   steps,
@@ -50,8 +51,13 @@ export function FundingRoadmap({
       <div style={styles.header}>
         <div>
           <div style={styles.eyebrowRow}>
+            <span style={styles.cardIconBadge}>
+              <RouteIcon size={14} />
+            </span>
             <p style={styles.eyebrow}>Funding Readiness Roadmap</p>
-            <span style={styles.aiBadge}>AI-Generated</span>
+            <span style={styles.aiBadge}>
+              <SparkleIcon size={9} /> AI-Generated
+            </span>
           </div>
           <p style={styles.caption}>AI-sequenced path to investor readiness, grounded in current fundamentals</p>
         </div>
@@ -116,6 +122,17 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: "var(--space-2)",
   },
+  cardIconBadge: {
+    flexShrink: 0,
+    width: 24,
+    height: 24,
+    borderRadius: "var(--radius-sm)",
+    background: "var(--color-forest-soft)",
+    color: "var(--color-forest)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   eyebrow: {
     fontFamily: "var(--font-body)",
     fontWeight: 600,
@@ -124,6 +141,9 @@ const styles: Record<string, React.CSSProperties> = {
     margin: 0,
   },
   aiBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "3px",
     fontSize: "10px",
     fontWeight: 700,
     color: "var(--color-forest)",

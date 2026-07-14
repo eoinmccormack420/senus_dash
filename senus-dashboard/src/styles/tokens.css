@@ -178,6 +178,19 @@ button::-moz-focus-inner {
   background: var(--color-paper);
 }
 
+/* Hover-lift for grid-item cards (e.g. NearbyIncubators.tsx's mini
+   cards) — transform/box-shadow on :hover needs real CSS, same reason
+   as .disclosure-row above. --shadow-card-hover already existed as a
+   token (used by .login-submit) but nothing applied it to a card. */
+.card-hover {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
 .num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
