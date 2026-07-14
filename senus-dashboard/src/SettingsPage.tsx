@@ -14,10 +14,18 @@ import { NotificationsSection } from "./settings/NotificationsSection";
 import { SignInAccessSection } from "./settings/SignInAccessSection";
 import { RegenerateInsightsSection } from "./settings/RegenerateInsightsSection";
 import { GovernanceSection } from "./settings/GovernanceSection";
+import { AlertsSection } from "./settings/AlertsSection";
+import { StrategicGoalsSection } from "./settings/StrategicGoalsSection";
+import { EcosystemChecklistSection } from "./settings/EcosystemChecklistSection";
+import { DriveSection } from "./settings/DriveSection";
 import "./styles/tokens.css";
 
 const ALL_SECTIONS = [
   { key: "notifications", label: "Notifications", adminOnly: false },
+  { key: "alerts", label: "Board Alerts", adminOnly: true },
+  { key: "strategic_goals", label: "Strategic Goals", adminOnly: true },
+  { key: "ecosystem_checklist", label: "Ecosystem Checklist", adminOnly: true },
+  { key: "drive", label: "Google Drive", adminOnly: true },
   { key: "sign_in_access", label: "Sign-in access", adminOnly: true },
   { key: "regenerate_insights", label: "Regenerate insights", adminOnly: true },
   { key: "governance", label: "AI Governance", adminOnly: true },
@@ -68,6 +76,10 @@ export default function SettingsPage({
 
         <main style={content}>
           {active === "notifications" && <NotificationsSection isAdmin={currentUser.is_staff} />}
+          {active === "alerts" && currentUser.is_staff && <AlertsSection />}
+          {active === "strategic_goals" && currentUser.is_staff && <StrategicGoalsSection />}
+          {active === "ecosystem_checklist" && currentUser.is_staff && <EcosystemChecklistSection />}
+          {active === "drive" && currentUser.is_staff && <DriveSection />}
           {active === "sign_in_access" && currentUser.is_staff && (
             <SignInAccessSection currentUserEmail={currentUser.email} />
           )}

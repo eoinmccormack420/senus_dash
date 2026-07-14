@@ -14,6 +14,9 @@ the (future) Gemini extraction pipeline, not via the dashboard API.
 """
 
 import os
+import re
+
+from django.http import HttpResponse
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -23,32 +26,56 @@ from rest_framework.exceptions import NotFound
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.views import APIView
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.utils import timezone
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 
 from .models import (
     FinancialPeriod,
+    AdvisoryGoal,
+    EcosystemChecklistItem,
+    ReportSpec,
     AllowedGoogleEmail,
     UserPreferences,
     ExtractionAttempt,
     NotificationSettings,
+    BoardAlertSettings,
+    DriveSettings,
+    IncubatorSettings,
+    NearbyIncubator,
 )
 from .serializers import (
     PeriodListSerializer,
     PeriodDetailSerializer,
     AIInsightSerializer,
+    AdvisoryGoalSerializer,
+    EcosystemChecklistItemSerializer,
+    ReportSpecSerializer,
     AllowedGoogleEmailSerializer,
     UserPreferencesSerializer,
     ExtractionAttemptSerializer,
     ExtractionAttemptListSerializer,
     NotificationSettingsSerializer,
+    BoardAlertSettingsSerializer,
+    DriveSettingsSerializer,
+    IncubatorSettingsSerializer,
+    NearbyIncubatorSerializer,
 )
+from .alerts import evaluate_board_alerts, send_board_alert_digest
 from .extraction.commentary import generate_insights_for_period
+from .extraction.advisory import generate_goals_for_period
+from .extraction.roadmap import generate_roadmap_for_period
+from .extraction.report_narrative import generate_narrative_for_spec
+from .extraction.report_pdf import render_report_pdf
+from .extraction.report_deck import generate_deck as build_deck_bytes
+from .extraction.drive_sync import sync_drive_folder_in_background, is_sync_stale
+from .extraction import drive_client
+from .extraction.places_client import refresh_nearby_incubators
 from .extraction.pipeline import promote_attempt
 from .extraction.email_notifications import notify_insight_subscribers, send_test_email
 from .extraction.notifications import send_test_slack_message
@@ -71,7 +98,7 @@ class FinancialPeriodViewSet(viewsets.ReadOnlyModelViewSet):
             # aggregate detail endpoint
             qs = qs.select_related(
                 "pl_statement", "balance_sheet", "cash_flow", "business_metrics"
-            ).prefetch_related("ai_insights")
+            ).prefetch_related("ai_insights", "advisory_goals")
         return qs
 
     @action(detail=True, methods=["get"])
@@ -80,13 +107,19 @@ class FinancialPeriodViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = AIInsightSerializer(period.ai_insights.all(), many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+    def send_alert_digest(self, request, pk=None):
+        period = self.get_object()
+        alerts = evaluate_board_alerts(period, BoardAlertSettings.get_solo())
+        return Response(send_board_alert_digest(period, alerts))
+
     @action(detail=False, methods=["get"])
     def latest(self, request):
         period = (
             FinancialPeriod.objects.select_related(
                 "pl_statement", "balance_sheet", "cash_flow", "business_metrics"
             )
-            .prefetch_related("ai_insights")
+            .prefetch_related("ai_insights", "advisory_goals")
             .order_by("-end_date")
             .first()
         )
@@ -195,6 +228,95 @@ class AllowedGoogleEmailViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
 
+class EcosystemChecklistItemViewSet(viewsets.ModelViewSet):
+    """
+    Irish startup-ecosystem benchmark checklist (HPSU/Euronext/NovaUCD —
+    seeded by a data migration, not creatable via the API). Any
+    authenticated user can view it on the Dashboard; only an admin can
+    update status/notes from Settings > Ecosystem Checklist.
+    """
+    queryset = EcosystemChecklistItem.objects.all()
+    serializer_class = EcosystemChecklistItemSerializer
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_permissions(self):
+        if self.action in ("update", "partial_update"):
+            return [IsAdminUser()]
+        return [IsAuthenticated()]
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+
+def _report_filename(spec, ext: str) -> str:
+    label = spec.title or f"{spec.audience_label}-{spec.period.label}"
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", label).strip("-").lower() or "report"
+    return f"{slug}.{ext}"
+
+
+class ReportSpecViewSet(viewsets.ModelViewSet):
+    """
+    Configurable board reports — which sections, for whom, why (see
+    board/extraction/report_pdf.py / report_deck.py / report_narrative.py).
+    Any authenticated user can create/view/download, matching the old,
+    ungated "Download Board Pack" this replaces; generating or approving
+    AI-tailored narrative is admin-only via the same get_permissions()
+    split EcosystemChecklistItemViewSet introduced above.
+    """
+    queryset = ReportSpec.objects.select_related("period", "created_by", "narrative_approved_by").all()
+    serializer_class = ReportSpecSerializer
+
+    def get_permissions(self):
+        if self.action in ("generate_narrative", "approve_narrative"):
+            return [IsAdminUser()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def generate_narrative(self, request, pk=None):
+        spec = self.get_object()
+        result = generate_narrative_for_spec(spec, force=bool(request.data.get("force")))
+        return Response(result)
+
+    @action(detail=True, methods=["post"])
+    def approve_narrative(self, request, pk=None):
+        spec = self.get_object()
+        if not spec.tailored_narrative:
+            return Response({"detail": "No narrative has been generated yet."}, status=400)
+        spec.narrative_approved = True
+        spec.narrative_approved_by = request.user
+        spec.narrative_approved_at = timezone.now()
+        spec.save()
+        return Response(ReportSpecSerializer(spec).data)
+
+    def _uses_tailored_narrative(self, spec) -> bool:
+        return spec.use_tailored_narrative and spec.narrative_approved
+
+    @action(detail=True, methods=["post"])
+    def generate_pdf(self, request, pk=None):
+        spec = self.get_object()
+        base_url = request.build_absolute_uri("/")
+        pdf_bytes = render_report_pdf(spec, request.user, base_url)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{_report_filename(spec, "pdf")}"'
+        response["X-Narrative-Used"] = "tailored" if self._uses_tailored_narrative(spec) else "standard"
+        return response
+
+    @action(detail=True, methods=["post"])
+    def generate_deck(self, request, pk=None):
+        spec = self.get_object()
+        deck_bytes = build_deck_bytes(spec)
+        response = HttpResponse(
+            deck_bytes,
+            content_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{_report_filename(spec, "pptx")}"'
+        response["X-Narrative-Used"] = "tailored" if self._uses_tailored_narrative(spec) else "standard"
+        return response
+
+
 class RegenerateInsightsView(APIView):
     """
     POST -> regenerates AI commentary for the latest period, admin only.
@@ -212,6 +334,42 @@ class RegenerateInsightsView(APIView):
         results = generate_insights_for_period(period)
         notify_insight_subscribers(period, results)
         return Response({"period": period.label, "results": results})
+
+
+class GenerateAdvisoryGoalsView(APIView):
+    """
+    POST -> (re)generates the Strategic Advisory Agent's suggested goals
+    for the latest period, admin only. Same shape as
+    RegenerateInsightsView — wraps generate_goals_for_period() (board/
+    extraction/advisory.py), which already respects the source-data-hash
+    cache and never touches goals a human has already committed to.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        period = FinancialPeriod.objects.order_by("-end_date").first()
+        if period is None:
+            return Response({"detail": "No financial periods have been seeded yet."}, status=404)
+        result = generate_goals_for_period(period)
+        return Response({"period": period.label, "result": result})
+
+
+class GenerateFundingRoadmapView(APIView):
+    """
+    POST -> (re)generates the Funding Readiness Roadmap's sequenced
+    phases for the latest period, admin only. Same shape as
+    GenerateAdvisoryGoalsView — wraps generate_roadmap_for_period()
+    (board/extraction/roadmap.py). Forces regeneration since this is an
+    explicit user-triggered action, not a background auto-refresh.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        period = FinancialPeriod.objects.order_by("-end_date").first()
+        if period is None:
+            return Response({"detail": "No financial periods have been seeded yet."}, status=404)
+        result = generate_roadmap_for_period(period, force=True)
+        return Response({"period": period.label, "result": result})
 
 
 class NotificationStatusView(APIView):
@@ -262,6 +420,189 @@ class NotificationStatusView(APIView):
             "from_email": settings_row.from_email,
             "gmail_connected_email": settings_row.gmail_connected_email,
         }
+
+
+class BoardAlertSettingsView(APIView):
+    """
+    GET   -> current board-alert thresholds (cash runway, EBITDA margin,
+             admin expense ratio, current ratio), each with an enabled flag.
+    PATCH { "cash_runway_enabled": true, "cash_runway_months_min": 12, ... }
+             -> partial update of any threshold field. Admin only —
+             these govern what every board member sees as a breach on
+             the dashboard, not a personal preference.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, *args, **kwargs):
+        return Response(BoardAlertSettingsSerializer(BoardAlertSettings.get_solo()).data)
+
+    def patch(self, request, *args, **kwargs):
+        settings_row = BoardAlertSettings.get_solo()
+        serializer = BoardAlertSettingsSerializer(settings_row, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class DriveSettingsView(APIView):
+    """
+    GET   -> current Drive folder ID + last-sync status/summary/timestamp.
+    PATCH { "folder_id": "..." } -> sets the Drive folder ID. Admin only.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, *args, **kwargs):
+        return Response(DriveSettingsSerializer(DriveSettings.get_solo()).data)
+
+    def patch(self, request, *args, **kwargs):
+        settings_row = DriveSettings.get_solo()
+        serializer = DriveSettingsSerializer(settings_row, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class SyncDriveNowView(APIView):
+    """
+    POST { "period": "HY2026" } -> starts a Drive sync in a background
+    thread and returns immediately (see drive_sync.py's module docstring
+    for why this doesn't just block the request — a full sync can run
+    past gunicorn's default worker timeout). Admin only.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        settings_row = DriveSettings.get_solo()
+        if not settings_row.folder_id:
+            return Response({"detail": "Set a Drive folder ID first."}, status=400)
+        if settings_row.last_sync_status == "running" and not is_sync_stale(settings_row):
+            return Response({"detail": "A sync is already running."}, status=400)
+
+        period_label = request.data.get("period")
+        try:
+            period = FinancialPeriod.objects.get(label=period_label)
+        except FinancialPeriod.DoesNotExist:
+            return Response({"detail": f"No period with label '{period_label}'."}, status=400)
+
+        sync_drive_folder_in_background(settings_row.folder_id, period.id)
+        return Response({"status": "started"})
+
+
+class ConnectDriveView(APIView):
+    """
+    POST { "code": "<authorization code from google.accounts.oauth2.initCodeClient>" }
+    -> exchanges the code for a refresh token (requires
+    GOOGLE_OAUTH_CLIENT_SECRET) and stores it on DriveSettings, so
+    document sync reads Drive as this Google account instead of needing
+    a service-account key file. Admin only. Same shape as
+    ConnectGmailView above — exchange_code_for_tokens/
+    get_email_from_id_token are generic, not Gmail-specific, reused as-is.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        code = request.data.get("code")
+        if not code:
+            return Response({"detail": "Missing code."}, status=400)
+
+        try:
+            tokens = exchange_code_for_tokens(code)
+            refresh_token = tokens.get("refresh_token")
+            if not refresh_token:
+                return Response(
+                    {"detail": "Google didn't return a refresh token. Try disconnecting and reconnecting."},
+                    status=400,
+                )
+            email = get_email_from_id_token(tokens["id_token"])
+        except GmailOAuthError as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        settings_row = DriveSettings.get_solo()
+        settings_row.refresh_token = refresh_token
+        settings_row.connected_email = email
+        settings_row.save()
+        return Response(DriveSettingsSerializer(settings_row).data)
+
+
+class DisconnectDriveView(APIView):
+    """
+    POST -> clears the connected Drive account, admin only. Leaves
+    folder_id alone — reconnecting shouldn't force re-picking the folder.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        settings_row = DriveSettings.get_solo()
+        settings_row.refresh_token = ""
+        settings_row.connected_email = ""
+        settings_row.save()
+        return Response(DriveSettingsSerializer(settings_row).data)
+
+
+class DriveFoldersView(APIView):
+    """
+    GET ?parent=<folder id, default "root"> -> {"parent_id", "parent_name",
+    "folders": [{"id", "name"}, ...]} for the Settings > Google Drive
+    folder picker. Admin only. Wraps drive_client so a Drive auth/API
+    failure surfaces as a 400 with Google's own message rather than a 500.
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, *args, **kwargs):
+        parent_id = request.query_params.get("parent", "root")
+        try:
+            folders = drive_client.list_subfolders(parent_id)
+            parent_name = drive_client.get_folder_name(parent_id)
+        except Exception as exc:  # noqa: BLE001
+            return Response({"detail": str(exc)}, status=400)
+        return Response({"parent_id": parent_id, "parent_name": parent_name, "folders": folders})
+
+
+class IncubatorsView(APIView):
+    """
+    GET -> {"settings": {...}, "incubators": [...]} for the "Nearby
+    Startup Incubators" card on /readiness. Any authenticated user can
+    read this (it's board-facing content, not admin config).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        return Response(
+            {
+                "settings": IncubatorSettingsSerializer(IncubatorSettings.get_solo()).data,
+                "incubators": NearbyIncubatorSerializer(NearbyIncubator.objects.all(), many=True).data,
+            }
+        )
+
+
+class RefreshIncubatorsView(APIView):
+    """
+    POST { "location": "..." } (optional override, persisted if given)
+    -> re-searches Google Places (New) and replaces the cached incubator
+    list. Admin only — this is a live external API call, not a passive
+    read. Wraps places_client errors as a 400, same convention as
+    DriveFoldersView's treatment of Drive API errors.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        settings_row = IncubatorSettings.get_solo()
+        location = request.data.get("location") or settings_row.search_location
+        if location != settings_row.search_location:
+            settings_row.search_location = location
+            settings_row.save(update_fields=["search_location"])
+
+        try:
+            refresh_nearby_incubators(location)
+        except RuntimeError as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        return Response(
+            {
+                "settings": IncubatorSettingsSerializer(IncubatorSettings.get_solo()).data,
+                "incubators": NearbyIncubatorSerializer(NearbyIncubator.objects.all(), many=True).data,
+            }
+        )
 
 
 class TestSlackNotificationView(APIView):
@@ -416,3 +757,47 @@ class ExtractionAttemptViewSet(viewsets.ReadOnlyModelViewSet):
         attempt.verified = False
         attempt.save()
         return Response(ExtractionAttemptSerializer(attempt).data)
+
+
+class AdvisoryGoalViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Strategic Advisory Agent goals — admin-only. commit/dismiss/complete
+    are the only mutations, same shape as ExtractionAttemptViewSet's
+    approve/reject: a human explicitly acts on an AI suggestion rather
+    than it silently taking effect.
+
+    ?period=<id> filters the list.
+    """
+    queryset = AdvisoryGoal.objects.select_related("period").all()
+    serializer_class = AdvisoryGoalSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        period_id = self.request.query_params.get("period")
+        if period_id:
+            qs = qs.filter(period_id=period_id)
+        return qs
+
+    @action(detail=True, methods=["post"])
+    def commit(self, request, pk=None):
+        goal = self.get_object()
+        goal.status = "committed"
+        goal.committed_at = timezone.now()
+        goal.committed_by = request.user
+        goal.save()
+        return Response(AdvisoryGoalSerializer(goal).data)
+
+    @action(detail=True, methods=["post"])
+    def dismiss(self, request, pk=None):
+        goal = self.get_object()
+        goal.status = "dismissed"
+        goal.save()
+        return Response(AdvisoryGoalSerializer(goal).data)
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        goal = self.get_object()
+        goal.status = "completed"
+        goal.save()
+        return Response(AdvisoryGoalSerializer(goal).data)

@@ -1,0 +1,19 @@
+# Railway/Nixpacks build config.
+#
+# UNVERIFIED against a real Railway deploy — I don't have deploy access
+# to confirm this. `playwright install --with-deps chromium` is the
+# standard way to get headless Chromium (and its system libraries) into
+# a CI/deploy image; --with-deps additionally apt-get-installs the
+# libraries Chromium needs at runtime (fonts, libnss3, libatk, etc.).
+#
+# If the PDF/deck download fails in production specifically (rather than
+# locally), check `railway logs` first — a missing .so / "Host system is
+# missing dependencies" error means --with-deps didn't get what it
+# needed in this build environment. The fix is almost always adding the
+# specific missing package here, not rewriting this file, e.g.:
+# aptPkgs = ["libnss3", "libatk-bridge2.0-0", "libgtk-3-0", "libgbm1"]
+[phases.install]
+cmds = [
+  "pip install -r requirements.txt",
+  "playwright install --with-deps chromium",
+]

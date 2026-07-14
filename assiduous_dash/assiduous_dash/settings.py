@@ -24,6 +24,11 @@ load_dotenv(BASE_DIR / ".env")
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
+# Places API (New) — powers the "Nearby Startup Incubators" card on
+# /readiness (board/extraction/places_client.py). Requires a Google Cloud
+# project with billing enabled, even for free-tier usage.
+GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "")
+
 # Google Sign-In (see board/views.py:GoogleLoginView). GOOGLE_ALLOWED_EMAILS
 # is a hard allowlist — a verified Google ID token alone is not enough to
 # log in, the email must also be in this list, since this app serves

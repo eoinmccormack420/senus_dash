@@ -488,6 +488,189 @@ class ExtractionAttempt(models.Model):
         return f"{self.statement_kind} — {self.period.label} — {self.status}"
 
 
+class AdvisoryGoal(models.Model):
+    """
+    An AI-suggested SMART goal for improving funding/investor readiness
+    (see board/extraction/advisory.py's "Strategic Advisory Agent").
+    Mirrors ExtractionAttempt's human-approval-gate philosophy: nothing
+    surfaces as a committed board goal until a reviewer explicitly
+    commits it (AdvisoryGoalViewSet.commit in views.py) — a "suggested"
+    row is just an AI proposal, not yet anything the board has adopted.
+    """
+
+    STATUS_CHOICES = [
+        ("suggested", "Suggested"),
+        ("committed", "Committed"),
+        ("completed", "Completed"),
+        ("dismissed", "Dismissed"),
+    ]
+
+    period = models.ForeignKey(
+        FinancialPeriod, on_delete=models.CASCADE, related_name="advisory_goals"
+    )
+    order = models.PositiveSmallIntegerField()
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    rationale = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="suggested")
+    model_used = models.CharField(max_length=50, blank=True)
+    # SHA-256 of the exact figures fed into the prompt (see
+    # board/extraction/advisory.py) — lets generate_goals_for_period skip
+    # regenerating "suggested" goals when the underlying financial data
+    # hasn't changed since the last generation. Same pattern as
+    # AIInsight.source_data_hash.
+    source_data_hash = models.CharField(max_length=64, blank=True)
+    generated_at = models.DateTimeField(auto_now_add=True)
+    committed_at = models.DateTimeField(null=True, blank=True)
+    committed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        ordering = ["period__end_date", "order"]
+
+    def __str__(self):
+        return f"{self.title} — {self.period.label} ({self.status})"
+
+
+class FundingRoadmapStep(models.Model):
+    """
+    An AI-generated phase of the "Funding Readiness Roadmap" (see
+    board/extraction/roadmap.py's Strategic Advisory Agent variant) —
+    an ordered, time-sequenced narrative toward investor readiness,
+    grounded in the same already-validated figures AdvisoryGoal's
+    suggestions use.
+
+    Unlike AdvisoryGoal, there's no commit/dismiss workflow and no
+    per-step status: these are AI-authored narrative/sequencing, not
+    verifiable facts like FundingMilestone, so they stay purely
+    advisory (same as the Outlook narrative) rather than presenting an
+    inferred "status" as if it were real tracked progress. The whole
+    set is replaced wholesale on each regeneration, same as
+    NearbyIncubator.
+    """
+
+    period = models.ForeignKey(
+        FinancialPeriod, on_delete=models.CASCADE, related_name="funding_roadmap_steps"
+    )
+    order = models.PositiveSmallIntegerField()
+    timeframe = models.CharField(max_length=100)
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    model_used = models.CharField(max_length=50, blank=True)
+    # SHA-256 of the exact figures fed into the prompt — same caching
+    # pattern as AdvisoryGoal.source_data_hash.
+    source_data_hash = models.CharField(max_length=64, blank=True)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["period__end_date", "order"]
+
+    def __str__(self):
+        return f"{self.timeframe}: {self.title} — {self.period.label}"
+
+
+class EcosystemChecklistItem(models.Model):
+    """
+    Tracks the company against fixed Irish startup-ecosystem benchmarks
+    (Enterprise Ireland HPSU status, Euronext Market Access, NovaUCD
+    engagement — seeded by a data migration, see board/migrations/).
+    Not period-scoped: unlike AIInsight/AdvisoryGoal, this is a standing
+    company attribute rather than something tied to a specific
+    FinancialPeriod's figures, so it isn't nested under PeriodDetailSerializer.
+    key/title/description are fixed (read-only from the API) — this is a
+    checklist against 3 named benchmarks, not a general-purpose todo list.
+    """
+
+    STATUS_CHOICES = [
+        ("not_started", "Not Started"),
+        ("in_progress", "In Progress"),
+        ("complete", "Complete"),
+    ]
+
+    key = models.SlugField(max_length=50, unique=True)
+    order = models.PositiveSmallIntegerField(default=0)
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="not_started")
+    notes = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        ordering = ["order"]
+
+    def __str__(self):
+        return f"{self.title} ({self.status})"
+
+
+class ReportSpec(models.Model):
+    """
+    A configured board report — which sections, for whom, and why (see
+    board/extraction/report_pdf.py / report_deck.py / report_narrative.py).
+    Reusable/regeneratable rather than a one-shot export: the same spec
+    can be re-downloaded as a PDF or a slide deck, and its tailored
+    narrative can be regenerated without losing the rest of the config.
+
+    tailored_narrative/narrative_* mirror ExtractionAttempt.verified /
+    AdvisoryGoal.commit's human-approval-gate shape: generating narrative
+    never auto-approves it, and regenerating resets narrative_approved
+    to False — a stale approval on newly-generated text would defeat
+    the point of the gate.
+    """
+
+    period = models.ForeignKey(
+        "FinancialPeriod", on_delete=models.CASCADE, related_name="report_specs"
+    )
+    title = models.CharField(max_length=200, blank=True)
+    audience_label = models.CharField(max_length=200)
+    context_note = models.TextField(blank=True)
+
+    include_revenue_growth = models.BooleanField(default=True)
+    include_profitability = models.BooleanField(default=True)
+    include_cash_liquidity = models.BooleanField(default=True)
+    include_solvency_leverage = models.BooleanField(default=True)
+    include_returns = models.BooleanField(default=True)
+    include_outlook = models.BooleanField(default=True)
+
+    use_tailored_narrative = models.BooleanField(default=False)
+    tailored_narrative = models.JSONField(null=True, blank=True)
+    narrative_model_used = models.CharField(max_length=50, blank=True)
+    narrative_source_hash = models.CharField(max_length=64, blank=True)
+    narrative_generated_at = models.DateTimeField(null=True, blank=True)
+    narrative_approved = models.BooleanField(default=False)
+    narrative_approved_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    narrative_approved_at = models.DateTimeField(null=True, blank=True)
+
+    created_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Section keys in fixed display order, paired with their include_*
+    # field name — the one place this mapping is defined, so
+    # report_pdf.py/report_deck.py/report_narrative.py all iterate the
+    # same list rather than three independently-hand-kept ones.
+    SECTION_FIELDS = [
+        ("revenue_growth", "include_revenue_growth"),
+        ("profitability", "include_profitability"),
+        ("cash_liquidity", "include_cash_liquidity"),
+        ("solvency_leverage", "include_solvency_leverage"),
+        ("returns", "include_returns"),
+        ("outlook", "include_outlook"),
+    ]
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def included_sections(self) -> list[str]:
+        return [key for key, field in self.SECTION_FIELDS if getattr(self, field)]
+
+    def __str__(self):
+        return f"{self.title or self.audience_label} — {self.period.label}"
+
+
 class AllowedGoogleEmail(models.Model):
     """
     Admin-managed allowlist for Google Sign-In (see board/views.py's
@@ -586,3 +769,103 @@ class NotificationSettings(models.Model):
 
     def __str__(self):
         return "Notification settings"
+
+
+class DriveSettings(models.Model):
+    """
+    Singleton row (always pk=1) for the Google Drive ingestion folder
+    ID and last-sync status, set from Settings > Google Drive instead
+    of requiring a --folder-id CLI flag every run — same role
+    NotificationSettings/BoardAlertSettings play for their integrations.
+
+    last_sync_status lets the settings panel show "running" across
+    polls/reloads while a sync is in progress in a background thread
+    (see board/extraction/drive_sync.py) — a real sync can take minutes
+    (many sequential Gemini calls, paced to respect rate limits), too
+    long to hold open a synchronous request/response.
+
+    connected_email/refresh_token are set via the "Connect Google Drive"
+    OAuth flow (board/extraction/gmail_oauth.py's exchange_code_for_tokens,
+    reused as-is — it's generic, not Gmail-specific — see
+    ConnectDriveView in views.py), same shape as
+    NotificationSettings.gmail_connected_email/gmail_refresh_token.
+    refresh_token is a credential like that field — never exposed by
+    DriveSettingsSerializer. When set, drive_client.py's _get_service()
+    prefers it over the service-account file fallback.
+    """
+
+    STATUS_CHOICES = [
+        ("idle", "Idle"),
+        ("running", "Running"),
+        ("success", "Success"),
+        ("error", "Error"),
+    ]
+
+    folder_id = models.CharField(max_length=255, blank=True)
+    # Stored at selection time (the folder picker already has the name
+    # in hand from the listing it's rendering) rather than looked up
+    # live on every Settings load — a live Drive API call on every GET
+    # is slow and, worse, would actually hang for minutes if Drive
+    # auth is misconfigured (found via a very slow test run).
+    folder_name = models.CharField(max_length=255, blank=True)
+    connected_email = models.CharField(max_length=255, blank=True)
+    refresh_token = models.CharField(max_length=1024, blank=True)
+    last_sync_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="idle")
+    last_sync_summary = models.TextField(blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def get_solo(cls) -> "DriveSettings":
+        obj, _created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Drive settings"
+
+
+class IncubatorSettings(models.Model):
+    """
+    Singleton row (always pk=1) for the Google Places (New) search used
+    to populate the "Nearby Startup Incubators" card on /readiness —
+    same get_solo() shape as DriveSettings/NotificationSettings.
+
+    Replaces the old manually-entered Ecosystem Checklist on that page:
+    the user explicitly wants only real, sourced facts there, not
+    self-reported status fields (see board/readiness.py's absence of
+    any HPSU/Euronext/NovaUCD proxy — there is no honest one).
+    """
+
+    search_location = models.CharField(max_length=255, default="Dublin, Ireland")
+    last_refreshed_at = models.DateTimeField(null=True, blank=True)
+    last_refresh_error = models.TextField(blank=True)
+
+    @classmethod
+    def get_solo(cls) -> "IncubatorSettings":
+        obj, _created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Incubator settings"
+
+
+class NearbyIncubator(models.Model):
+    """
+    Cache table for Google Places (New) results, wiped and rebuilt
+    wholesale on each refresh (see places_client.refresh_nearby_incubators)
+    rather than diffed/updated in place — a full text search result set
+    naturally supersedes the prior one entirely.
+    """
+
+    place_id = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    address = models.CharField(max_length=500, blank=True)
+    website = models.URLField(blank=True)
+    rating = models.FloatField(null=True, blank=True)
+    maps_url = models.URLField(blank=True)
+
+    class Meta:
+        ordering = ["-rating", "name"]
+
+    def __str__(self):
+        return self.name

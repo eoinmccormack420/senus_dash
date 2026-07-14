@@ -1,23 +1,25 @@
 // src/sections/CashLiquiditySection.tsx
 //
-// Third dashboard section. Two visualizations:
-//   1. Cash balance trend across all periods (area chart) — the
-//      "are we going up or down" headline view.
-//   2. A cash bridge/waterfall for the CURRENT period, showing how
-//      opening cash moves through operating/investing/financing to
-//      reach closing cash. This is the chart a board actually wants
-//      for cash: not just "cash went up," but "cash went up because
-//      of a share issue, not because the business is generating cash."
+// Third dashboard section, for the CURRENTLY SELECTED period. Two
+// visualizations:
+//   1. A cash bridge/waterfall for the period, showing how opening
+//      cash moves through operating/investing/financing to reach
+//      closing cash. This is the chart a board actually wants for
+//      cash: not just "cash went up," but "cash went up because of a
+//      share issue, not because the business is generating cash."
+//   2. An EBITDA-to-Free-Cash-Flow bridge for the same reason.
 //
-// Recharts has no built-in waterfall type, so the bridge is built with
+// The cash balance trend across all periods used to be embedded here
+// too — it moved to the History tab (src/sections/HistorySection.tsx)
+// since it already portrayed the full extracted history rather than
+// this one period's snapshot.
+//
+// Recharts has no built-in waterfall type, so each bridge is built with
 // a stacked bar: an invisible "base" segment plus a colored "value"
 // segment, per-bar colored via Cell (same technique used for the
-// negative/positive EBITDA bars in ProfitabilitySection).
+// negative/positive EBITDA bars that used to live in this file).
 
-import { useEffect, useState } from "react";
 import {
-  AreaChart,
-  Area,
   BarChart,
   Bar,
   Cell,
@@ -27,10 +29,9 @@ import {
   Tooltip,
   ReferenceLine,
 } from "recharts";
-import { boardApi, type PeriodDetail, num, formatEUR } from "../api/client";
+import { type PeriodDetail, num, formatEUR } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
 import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
-import { Skeleton } from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
 import {
   barRadius,
@@ -41,7 +42,6 @@ import {
   CHART_HEIGHT,
   formatCompactEURTick,
   gridProps,
-  selectedDot,
   tooltipStyle,
   xAxisProps,
   yAxisProps,
@@ -49,11 +49,6 @@ import {
 
 interface Props {
   detail: PeriodDetail;
-}
-
-interface CashTrendPoint {
-  label: string;
-  closingCash: number;
 }
 
 interface BridgeStep {
@@ -80,35 +75,6 @@ interface Bridge {
 }
 
 export function CashLiquiditySection({ detail }: Props) {
-  const [trend, setTrend] = useState<CashTrendPoint[]>([]);
-  const [trendLoading, setTrendLoading] = useState(true);
-  const selectedLabel = detail.label;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadTrend() {
-      setTrendLoading(true);
-      const periods = await boardApi.listPeriods();
-      const details = await Promise.all(periods.map((p) => boardApi.getPeriod(p.id)));
-      if (cancelled) return;
-
-      const points: CashTrendPoint[] = details
-        .filter((d) => d.cash_flow !== null)
-        .map((d) => ({
-          label: d.label,
-          closingCash: num(d.cash_flow!.closing_cash),
-        }));
-      setTrend(points);
-      setTrendLoading(false);
-    }
-
-    loadTrend().catch(() => setTrendLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const cf = detail.cash_flow;
   const bs = detail.balance_sheet;
   const pl = detail.pl_statement;
@@ -123,60 +89,6 @@ export function CashLiquiditySection({ detail }: Props) {
   return (
     <div>
       <AIInsightCard insight={detail.ai_insights.find((i) => i.section === "cash_liquidity")} />
-      <div style={{ marginBottom: "var(--space-6)" }}>
-        <h2 style={sectionTitle}>Cash balance trend</h2>
-        {trendLoading ? (
-          <Skeleton height={CHART_HEIGHT} radius="var(--radius-md)" />
-        ) : trend.length < 2 ? (
-          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey-text)", fontSize: "var(--text-sm)" }}>
-            Not enough historical data yet to show a trend.
-          </div>
-        ) : (
-          <div className="print-avoid-break" style={chartCard} key={detail.id}>
-            <ResponsiveChartContainer height={CHART_HEIGHT}>
-              <AreaChart data={trend} margin={chartMargin.standard}>
-                <defs>
-                  <linearGradient id="cashFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={chartColors.primaryBright} stopOpacity={0.42} />
-                    <stop offset="52%" stopColor={chartColors.primary} stopOpacity={0.16} />
-                    <stop offset="100%" stopColor={chartColors.primary} stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="cashStroke" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={chartColors.primaryDeep} />
-                    <stop offset="100%" stopColor={chartColors.primaryBright} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid {...gridProps} />
-                <XAxis
-                  dataKey="label"
-                  {...xAxisProps}
-                />
-                <YAxis
-                  {...yAxisProps}
-                  tickFormatter={(v) => formatCompactEURTick(Number(v))}
-                />
-                <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} cursor={chartCursor} />
-                <ReferenceLine x={selectedLabel} stroke={chartColors.selectedGuide} strokeWidth={2} />
-                <Area
-                  type="monotone"
-                  dataKey="closingCash"
-                  name="Cash Balance"
-                  stroke="url(#cashStroke)"
-                  strokeWidth={3.5}
-                  fill="url(#cashFill)"
-                  dot={(props) =>
-                    props.payload.label === selectedLabel ? (
-                      <circle cx={props.cx} cy={props.cy} fill={chartColors.primary} {...selectedDot} />
-                    ) : null
-                  }
-                  activeDot={{ ...selectedDot, fill: chartColors.primary }}
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveChartContainer>
-          </div>
-        )}
-      </div>
 
       <div style={{ marginBottom: "var(--space-6)" }}>
         <h2 style={sectionTitle}>{detail.label} cash bridge</h2>

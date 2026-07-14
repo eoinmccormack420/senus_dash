@@ -110,11 +110,84 @@ export interface PeriodDetail extends PeriodSummary {
   cash_flow: CashFlow | null;
   business_metrics: BusinessMetrics | null;
   ai_insights: AIInsight[];
+  // AI-suggested SMART goals for this period (board/extraction/advisory.py)
+  // — "suggested" until an admin commits/dismisses them (AdvisoryGoalViewSet).
+  advisory_goals: AdvisoryGoal[];
+  // AI-generated, sequenced "Funding Readiness Roadmap" phases (board/
+  // extraction/roadmap.py) — purely advisory narrative, no commit
+  // workflow (unlike advisory_goals), regenerated wholesale on demand.
+  funding_roadmap: FundingRoadmapStep[];
   // Cross-statement metrics — need pl_statement + balance_sheet/cash_flow
   // together, computed on FinancialPeriod itself (see board/models.py).
   yoy_revenue_growth_pct: number | null;
   roce_pct: number | null;
   dscr: number | null;
+  // Evaluated live against BoardAlertSettings (board/alerts.py) — not
+  // stored, so this always reflects the current admin-configured
+  // thresholds rather than a snapshot from when the period was seeded.
+  board_alerts: BoardAlertSignal[];
+  // Computed live from this same payload's figures (board/readiness.py) —
+  // not stored, so it always reflects current data.
+  funding_readiness: FundingReadiness;
+}
+
+export interface AdvisoryGoal {
+  id: number;
+  order: number;
+  title: string;
+  description: string;
+  rationale: string;
+  status: "suggested" | "committed" | "completed" | "dismissed";
+  model_used: string;
+  generated_at: string;
+  committed_at: string | null;
+}
+
+export interface FundingRoadmapStep {
+  id: number;
+  order: number;
+  timeframe: string;
+  title: string;
+  description: string;
+  model_used: string;
+  generated_at: string;
+}
+
+export interface BoardAlertSignal {
+  key: string;
+  title: string;
+  section: string;
+  enabled: boolean;
+  value: number | null;
+  threshold: number;
+  unit: string;
+  operator: "above" | "below";
+  status: "attention" | "clear" | "not_monitored" | "unavailable";
+  detail: string;
+}
+
+export interface ReadinessComponent {
+  key: string;
+  title: string;
+  value: number | null;
+  unit: string;
+  score: number | null;
+  weight_pct: number;
+  detail: string;
+}
+
+export interface FundingMilestone {
+  key: string;
+  title: string;
+  description: string;
+  complete: boolean;
+  detail: string;
+}
+
+export interface FundingReadiness {
+  score: number | null;
+  components: ReadinessComponent[];
+  milestones: FundingMilestone[];
 }
 
 function authHeaders(): Record<string, string> {
@@ -153,6 +226,39 @@ async function apiMutate<T>(path: string, method: string, body?: unknown): Promi
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return handleApiResponse<T>(response);
+}
+
+// For binary responses (PDF/slide deck) — same auth/401 handling as
+// apiFetch/apiMutate, but returns a Blob plus the server-suggested
+// filename (from Content-Disposition) instead of parsing JSON.
+async function apiDownload(path: string, method: string = "POST"): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { method, headers: authHeaders() });
+  if (response.status === 401) {
+    clearToken();
+    window.location.reload();
+    throw new Error("Session expired — please log in again.");
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail || `API request failed: ${response.status} ${response.statusText}`);
+  }
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const blob = await response.blob();
+  return { blob, filename: match ? match[1] : "download" };
+}
+
+// Standard browser download trick: a temporary object URL + a
+// programmatically-clicked <a download>, then immediate cleanup.
+export function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 const TOKEN_KEY = "senus_board_token";
@@ -229,11 +335,23 @@ export interface RegenerateInsightsResult {
   results: { section: string; status: "generated" | "skipped" | "error"; detail: string }[];
 }
 
+export interface GenerateGoalsResult {
+  period: string;
+  result: { status: "generated" | "skipped" | "error"; detail: string };
+}
+
+export interface GenerateRoadmapResult {
+  period: string;
+  result: { status: "generated" | "skipped" | "error"; detail: string };
+}
+
 export const adminApi = {
   listAllowedEmails: () => apiFetch<AllowedEmail[]>("/admin/allowed-emails/"),
   addAllowedEmail: (email: string) => apiMutate<AllowedEmail>("/admin/allowed-emails/", "POST", { email }),
   removeAllowedEmail: (id: number) => apiMutate<void>(`/admin/allowed-emails/${id}/`, "DELETE"),
   regenerateInsights: () => apiMutate<RegenerateInsightsResult>("/admin/regenerate-insights/", "POST"),
+  generateGoals: () => apiMutate<GenerateGoalsResult>("/admin/generate-goals/", "POST"),
+  generateRoadmap: () => apiMutate<GenerateRoadmapResult>("/admin/generate-roadmap/", "POST"),
 };
 
 export const preferencesApi = {
@@ -278,6 +396,66 @@ export const notificationsApi = {
   testEmail: () => apiMutate<{ success: boolean; sent_to: string }>("/notifications/test-email/", "POST"),
   connectGmail: (code: string) => apiMutate<NotificationStatus>("/notifications/connect-gmail/", "POST", { code }),
   disconnectGmail: () => apiMutate<NotificationStatus>("/notifications/disconnect-gmail/", "POST"),
+};
+
+export interface BoardAlertSettingsData {
+  cash_runway_enabled: boolean;
+  cash_runway_months_min: number;
+  ebitda_margin_enabled: boolean;
+  ebitda_margin_min_pct: number;
+  admin_expense_ratio_enabled: boolean;
+  admin_expense_ratio_max_pct: number;
+  current_ratio_enabled: boolean;
+  current_ratio_min: number;
+  updated_at: string;
+}
+
+export type BoardAlertSettingsUpdate = Partial<Omit<BoardAlertSettingsData, "updated_at">>;
+
+export interface AlertDigestResult {
+  active_alerts: number;
+  slack: boolean;
+  teams: boolean;
+  email: boolean;
+}
+
+export const boardAlertsApi = {
+  getSettings: () => apiFetch<BoardAlertSettingsData>("/board-alerts/settings/"),
+  updateSettings: (data: BoardAlertSettingsUpdate) =>
+    apiMutate<BoardAlertSettingsData>("/board-alerts/settings/", "PATCH", data),
+  sendDigest: (periodId: number) => apiMutate<AlertDigestResult>(`/periods/${periodId}/send_alert_digest/`, "POST"),
+};
+
+export interface DriveSettingsData {
+  folder_id: string;
+  folder_name: string;
+  connected_email: string;
+  last_sync_status: "idle" | "running" | "success" | "error";
+  last_sync_summary: string;
+  last_synced_at: string | null;
+  updated_at: string;
+}
+
+export interface DriveFolder {
+  id: string;
+  name: string;
+}
+
+export interface DriveFolderListing {
+  parent_id: string;
+  parent_name: string;
+  folders: DriveFolder[];
+}
+
+export const driveApi = {
+  getSettings: () => apiFetch<DriveSettingsData>("/drive/settings/"),
+  updateSettings: (folder_id: string, folder_name: string) =>
+    apiMutate<DriveSettingsData>("/drive/settings/", "PATCH", { folder_id, folder_name }),
+  syncNow: (periodLabel: string) => apiMutate<{ status: string }>("/drive/sync/", "POST", { period: periodLabel }),
+  connect: (code: string) => apiMutate<DriveSettingsData>("/drive/connect/", "POST", { code }),
+  disconnect: () => apiMutate<DriveSettingsData>("/drive/disconnect/", "POST"),
+  listFolders: (parentId?: string) =>
+    apiFetch<DriveFolderListing>(`/drive/folders/${parentId ? `?parent=${encodeURIComponent(parentId)}` : ""}`),
 };
 
 // --- AI Governance Center (admin only) ---
@@ -328,6 +506,123 @@ export const governanceApi = {
   getAttempt: (id: number) => apiFetch<ExtractionAttemptDetail>(`/extraction-attempts/${id}/`),
   approveAttempt: (id: number) => apiMutate<ExtractionAttemptDetail>(`/extraction-attempts/${id}/approve/`, "POST"),
   rejectAttempt: (id: number) => apiMutate<ExtractionAttemptDetail>(`/extraction-attempts/${id}/reject/`, "POST"),
+};
+
+export const advisoryGoalsApi = {
+  list: (periodId: number) => apiFetch<AdvisoryGoal[]>(`/advisory-goals/?period=${periodId}`),
+  commit: (id: number) => apiMutate<AdvisoryGoal>(`/advisory-goals/${id}/commit/`, "POST"),
+  dismiss: (id: number) => apiMutate<AdvisoryGoal>(`/advisory-goals/${id}/dismiss/`, "POST"),
+  complete: (id: number) => apiMutate<AdvisoryGoal>(`/advisory-goals/${id}/complete/`, "POST"),
+};
+
+// Not period-scoped (unlike AdvisoryGoal/AIInsight) — HPSU/Euronext/NovaUCD
+// status is a standing company attribute, not tied to a FinancialPeriod,
+// so this is a standalone endpoint rather than nested on PeriodDetail.
+export interface EcosystemChecklistItem {
+  id: number;
+  key: string;
+  order: number;
+  title: string;
+  description: string;
+  status: "not_started" | "in_progress" | "complete";
+  notes: string;
+  updated_at: string;
+}
+
+export const ecosystemChecklistApi = {
+  list: () => apiFetch<EcosystemChecklistItem[]>("/ecosystem-checklist/"),
+  update: (id: number, patch: { status?: EcosystemChecklistItem["status"]; notes?: string }) =>
+    apiMutate<EcosystemChecklistItem>(`/ecosystem-checklist/${id}/`, "PATCH", patch),
+};
+
+// "Nearby Startup Incubators" card on /readiness — real, live Google
+// Places (New) results, not manually-entered data (replaces the old
+// Ecosystem Checklist card on that page).
+export interface IncubatorSettingsData {
+  search_location: string;
+  last_refreshed_at: string | null;
+  last_refresh_error: string;
+}
+
+export interface Incubator {
+  place_id: string;
+  name: string;
+  address: string;
+  website: string;
+  rating: number | null;
+  maps_url: string;
+}
+
+export interface IncubatorsResponse {
+  settings: IncubatorSettingsData;
+  incubators: Incubator[];
+}
+
+export const incubatorsApi = {
+  list: () => apiFetch<IncubatorsResponse>("/incubators/"),
+  refresh: (location?: string) => apiMutate<IncubatorsResponse>("/incubators/refresh/", "POST", { location }),
+};
+
+// A configured board report — which sections, for whom, why (see
+// board/models.py's ReportSpec). tailored_narrative/narrative_* are
+// read-only here — they only change via generateNarrative/approveNarrative.
+export interface ReportSpec {
+  id: number;
+  period: number;
+  period_label: string;
+  title: string;
+  audience_label: string;
+  context_note: string;
+  include_revenue_growth: boolean;
+  include_profitability: boolean;
+  include_cash_liquidity: boolean;
+  include_solvency_leverage: boolean;
+  include_returns: boolean;
+  include_outlook: boolean;
+  use_tailored_narrative: boolean;
+  tailored_narrative: Record<string, string> | null;
+  narrative_generated_at: string | null;
+  narrative_approved: boolean;
+  narrative_approved_by_username: string | null;
+  narrative_approved_at: string | null;
+  created_by_username: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ReportSpecInput = Partial<
+  Omit<
+    ReportSpec,
+    | "id"
+    | "period_label"
+    | "tailored_narrative"
+    | "narrative_generated_at"
+    | "narrative_approved"
+    | "narrative_approved_by_username"
+    | "narrative_approved_at"
+    | "created_by_username"
+    | "created_at"
+    | "updated_at"
+  >
+> & { period: number; audience_label: string };
+
+export interface GenerateNarrativeResult {
+  status: "generated" | "skipped" | "error";
+  detail: string;
+}
+
+export const reportSpecsApi = {
+  list: () => apiFetch<ReportSpec[]>("/report-specs/"),
+  get: (id: number) => apiFetch<ReportSpec>(`/report-specs/${id}/`),
+  create: (data: ReportSpecInput) => apiMutate<ReportSpec>("/report-specs/", "POST", data),
+  update: (id: number, data: Partial<ReportSpecInput>) =>
+    apiMutate<ReportSpec>(`/report-specs/${id}/`, "PATCH", data),
+  remove: (id: number) => apiMutate<void>(`/report-specs/${id}/`, "DELETE"),
+  generateNarrative: (id: number, force = false) =>
+    apiMutate<GenerateNarrativeResult>(`/report-specs/${id}/generate_narrative/`, "POST", { force }),
+  approveNarrative: (id: number) => apiMutate<ReportSpec>(`/report-specs/${id}/approve_narrative/`, "POST"),
+  downloadPdf: (id: number) => apiDownload(`/report-specs/${id}/generate_pdf/`, "POST"),
+  downloadDeck: (id: number) => apiDownload(`/report-specs/${id}/generate_deck/`, "POST"),
 };
 
 // Convenience parsers — DRF DecimalFields serialize as strings, this

@@ -7,6 +7,7 @@
 // carried over from the original direction.
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   LineChart,
   Line,
@@ -22,6 +23,7 @@ import { CashLiquiditySection } from "./sections/CashLiquiditySection";
 import { SolvencyLeverageSection } from "./sections/SolvencyLeverageSection";
 import { ReturnsSection } from "./sections/ReturnsSection";
 import { AIInsightsSection } from "./sections/AIInsightsSection";
+import { HistorySection } from "./sections/HistorySection";
 import "./styles/tokens.css";
 
 const SECTIONS = [
@@ -53,6 +55,10 @@ export default function Dashboard({
   const [detail, setDetail] = useState<PeriodDetail | null>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [activeSection, setActiveSection] = useState<string>(SECTIONS[0].key);
+  // "History" is a pseudo-period-tab (see PeriodTabs) — not tied to any
+  // single selected period, so it renders HistorySection instead of the
+  // usual hero metrics + section nav + per-period sections.
+  const [activeView, setActiveView] = useState<"period" | "history">("period");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Distinct from `error` — specifically "the initial periods fetch
@@ -150,35 +156,50 @@ export default function Dashboard({
             <h1 style={styles.title}>Board Report</h1>
           </div>
           {/* Own line, not inline with the title — variable badge width otherwise pushed headerControls onto a new row via header's flexWrap. */}
-          {detail && !loading && (
+          {detail && !loading && activeView === "period" && (
             <ProvenanceBadge provenance={detail.provenance} style={{ marginTop: "var(--space-2)" }} />
           )}
         </div>
         <div style={styles.headerControls}>
-          <PeriodTabs periods={periods} selectedId={selectedId} loading={loading} onSelect={setSelectedId} />
-          <button
-            onClick={() => window.print()}
-            disabled={loading || !detail}
-            style={{
-              ...styles.printButton,
-              ...(loading || !detail ? styles.printButtonDisabled : {}),
+          <PeriodTabs
+            periods={periods}
+            selectedId={selectedId}
+            loading={loading}
+            activeView={activeView}
+            onSelect={(id) => {
+              setSelectedId(id);
+              setActiveView("period");
             }}
-            title="Print or save this period's full report as a PDF"
+            onSelectHistory={() => setActiveView("history")}
+          />
+          <Link
+            to="/readiness"
+            style={{ ...styles.printButton, textDecoration: "none" }}
+            title="Funding Marathon Progress and the Irish Ecosystem Checklist"
+          >
+            <ReadinessIcon />
+            Funding Readiness
+          </Link>
+          <Link
+            to="/report-builder"
+            style={{ ...styles.printButton, textDecoration: "none" }}
+            title="Configure and download a PDF report or investor slide deck"
           >
             <DownloadIcon />
-            Download Board Pack
-          </button>
+            Build Report
+          </Link>
           <AccountMenu user={currentUser} onSignOut={onSignOut} />
         </div>
       </header>
 
-      {loading || !detail ? (
+      {activeView === "history" ? (
+        <HistorySection />
+      ) : loading || !detail ? (
         <DashboardSkeleton />
       ) : (
         <>
-          <PrintCover detail={detail} />
+          <HeroMetrics detail={detail} history={history} onJumpToSection={setActiveSection} />
 
-          <HeroMetrics detail={detail} history={history} />
 
           <nav className="no-print" style={styles.sectionNav}>
             {SECTIONS.map((s) => (
@@ -271,21 +292,39 @@ function DownloadIcon() {
   );
 }
 
+function ReadinessIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M3 17l5-5 4 4 8-8M20 8V4h-4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function PeriodTabs({
   periods,
   selectedId,
   loading,
+  activeView,
   onSelect,
+  onSelectHistory,
 }: {
   periods: PeriodSummary[];
   selectedId: number | null;
   loading: boolean;
+  activeView: "period" | "history";
   onSelect: (id: number) => void;
+  onSelectHistory: () => void;
 }) {
   return (
     <div style={styles.periodTabs}>
       {periods.map((p) => {
-        const isSelected = p.id === selectedId;
+        const isSelected = activeView === "period" && p.id === selectedId;
         const isPending = isSelected && loading;
         return (
           <button
@@ -330,6 +369,18 @@ function PeriodTabs({
           </button>
         );
       })}
+      <button
+        onClick={onSelectHistory}
+        disabled={loading}
+        style={{
+          ...styles.periodTab,
+          ...(activeView === "history" ? styles.periodTabActive : {}),
+          ...(loading ? styles.periodTabDisabled : {}),
+        }}
+        title="Trends across every extracted period"
+      >
+        History
+      </button>
     </div>
   );
 }
@@ -369,7 +420,15 @@ function Sparkline({ data, dataKey, color }: { data: HistoryPoint[]; dataKey: ke
   );
 }
 
-function HeroMetrics({ detail, history }: { detail: PeriodDetail; history: HistoryPoint[] }) {
+function HeroMetrics({
+  detail,
+  history,
+  onJumpToSection,
+}: {
+  detail: PeriodDetail;
+  history: HistoryPoint[];
+  onJumpToSection: (section: string) => void;
+}) {
   const pl = detail.pl_statement;
   const bs = detail.balance_sheet;
   const runwayMonths = bs?.cash_runway_months ?? null;
@@ -387,6 +446,9 @@ function HeroMetrics({ detail, history }: { detail: PeriodDetail; history: Histo
   // operating loss is stored negative; a LESS negative number (moving
   // toward zero) is improvement, so a positive delta here is good news
   const operatingLossChange = pctChange(history, detail.end_date, "operatingLoss");
+
+  const activeAlerts = detail.board_alerts.filter((a) => a.status === "attention");
+  const monitoredAlerts = detail.board_alerts.filter((a) => a.enabled);
 
   return (
     <section className="hero-grid" style={styles.hero}>
@@ -437,38 +499,43 @@ function HeroMetrics({ detail, history }: { detail: PeriodDetail; history: Histo
         </div>
         <p style={styles.heroCaption}>{bs ? formatEUR(bs.cash) : "—"} cash on hand</p>
       </div>
-    </section>
-  );
-}
 
-// Title page for "Download Board Pack" — print-only (see .print-cover in
-// tokens.css), sits before the on-screen content so the printed/exported
-// PDF opens on a proper cover rather than diving straight into figures.
-function PrintCover({ detail }: { detail: PeriodDetail }) {
-  const periodTypeLabel = detail.period_type === "annual" ? "Annual Report" : "Half Year Report";
-  const dateOpts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" };
-  const dateRange = `${new Date(detail.start_date).toLocaleDateString("en-IE", dateOpts)} – ${new Date(
-    detail.end_date
-  ).toLocaleDateString("en-IE", dateOpts)}`;
-
-  return (
-    <div className="print-cover">
-      <div className="print-cover-bar" />
-      <p className="print-cover-eyebrow">Senus PLC</p>
-      <h1 className="print-cover-title">Board Report</h1>
-      <p className="print-cover-period">
-        {periodTypeLabel} — {detail.label}
-      </p>
-      <p className="print-cover-daterange">{dateRange}</p>
-      <div className="print-cover-meta">
-        <ProvenanceBadge provenance={detail.provenance} />
+      <div
+        className={activeAlerts.length > 0 ? undefined : "card"}
+        style={activeAlerts.length > 0 ? styles.heroCardAlertActive : styles.heroCard}
+      >
+        <div style={styles.heroCardHeader}>
+          <p style={{ ...styles.heroLabel, ...(activeAlerts.length > 0 ? styles.heroLabelOnAlert : {}) }}>
+            Alerts
+          </p>
+        </div>
+        {activeAlerts.length === 0 ? (
+          <>
+            <p style={{ ...styles.heroNumber, color: "var(--color-forest)" }}>✓</p>
+            <p style={styles.heroCaption}>
+              All clear — {monitoredAlerts.length} signal{monitoredAlerts.length === 1 ? "" : "s"} monitored
+            </p>
+          </>
+        ) : (
+          <>
+            <p style={{ ...styles.heroNumber, color: "#FFFFFF" }}>⚠ {activeAlerts.length}</p>
+            <div style={styles.alertChipRow}>
+              {activeAlerts.map((alert) => (
+                <button
+                  key={alert.key}
+                  type="button"
+                  onClick={() => onJumpToSection(alert.section)}
+                  style={styles.alertChipOnAlert}
+                  title={alert.detail}
+                >
+                  {alert.title}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
-      <p className="print-cover-footer">
-        Generated{" "}
-        {new Date().toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })}
-        {" · "}Prepared for the board of Senus PLC — confidential
-      </p>
-    </div>
+    </section>
   );
 }
 
@@ -529,10 +596,6 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     whiteSpace: "nowrap",
   },
-  printButtonDisabled: {
-    opacity: 0.5,
-    cursor: "not-allowed",
-  },
   periodTabs: {
     display: "flex",
     gap: "var(--space-2)",
@@ -591,12 +654,32 @@ const styles: Record<string, React.CSSProperties> = {
   },
   hero: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    // Column count is set by the .hero-grid CSS rule (tokens.css), not
+    // here — it needs a media query to lock to exactly 5 even columns
+    // at desktop widths (there are always exactly 5 tiles: Revenue,
+    // Gross Margin, Operating Loss, Cash Runway, Alerts), which inline
+    // styles can't express. Below that breakpoint it falls back to
+    // auto-fit so tiles still reflow sensibly on narrow screens.
     gap: "var(--space-4)",
     marginBottom: "var(--space-6)",
   },
   heroCard: {
     padding: "var(--space-4)",
+  },
+  // Solid rust fill for the Alerts tile when something needs attention —
+  // borrowed from the reference product's own pattern of giving exactly
+  // one tile in an otherwise-neutral card grid a bold color fill to draw
+  // the eye (e.g. its "Monthly staff expenses" tile), rather than a red
+  // banner competing with the grid instead of belonging to it. Reverts to
+  // a plain white card (via the "card" className) once clear.
+  heroCardAlertActive: {
+    padding: "var(--space-4)",
+    background: "var(--color-rust)",
+    borderRadius: "var(--radius-md)",
+    boxShadow: "var(--shadow-card)",
+  },
+  heroLabelOnAlert: {
+    color: "rgba(255, 255, 255, 0.8)",
   },
   heroCardHeader: {
     display: "flex",
@@ -632,6 +715,27 @@ const styles: Record<string, React.CSSProperties> = {
   runwayFill: {
     height: "100%",
     transition: "width 0.4s ease",
+  },
+  alertChipRow: {
+    display: "flex",
+    gap: "var(--space-1)",
+    flexWrap: "wrap",
+    marginTop: "var(--space-1)",
+  },
+  // Translucent-white pill so the chip reads against the solid rust
+  // card fill (heroCardAlertActive) instead of the rust-on-tint
+  // combination meant for a white card background.
+  alertChipOnAlert: {
+    fontFamily: "var(--font-body)",
+    fontWeight: 600,
+    fontSize: "var(--text-xs)",
+    color: "#FFFFFF",
+    background: "rgba(255, 255, 255, 0.22)",
+    border: "none",
+    borderRadius: 999,
+    padding: "2px 8px",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
   },
   sectionNav: {
     display: "flex",

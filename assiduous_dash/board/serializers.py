@@ -26,12 +26,21 @@ from .models import (
     CashFlow,
     BusinessMetrics,
     AIInsight,
+    AdvisoryGoal,
+    FundingRoadmapStep,
+    EcosystemChecklistItem,
+    ReportSpec,
     ExtractionAttempt,
     AllowedGoogleEmail,
     UserPreferences,
     NotificationSettings,
     BoardAlertSettings,
+    DriveSettings,
+    IncubatorSettings,
+    NearbyIncubator,
 )
+from .alerts import evaluate_board_alerts
+from .readiness import compute_readiness_score, compute_funding_milestones
 
 
 class PLStatementSerializer(serializers.ModelSerializer):
@@ -153,6 +162,40 @@ class AIInsightSerializer(serializers.ModelSerializer):
         ]
 
 
+class AdvisoryGoalSerializer(serializers.ModelSerializer):
+    """
+    Read-only from the outside — mutations (commit/dismiss/complete) go
+    through AdvisoryGoalViewSet's actions, not a PATCH body, same
+    approve/reject-as-actions shape as ExtractionAttemptViewSet.
+    """
+
+    class Meta:
+        model = AdvisoryGoal
+        fields = [
+            "id",
+            "order",
+            "title",
+            "description",
+            "rationale",
+            "status",
+            "model_used",
+            "generated_at",
+            "committed_at",
+        ]
+
+
+class FundingRoadmapStepSerializer(serializers.ModelSerializer):
+    """
+    Read-only — no commit/dismiss workflow (see FundingRoadmapStep's
+    docstring), the whole set is regenerated wholesale via
+    GenerateFundingRoadmapView.
+    """
+
+    class Meta:
+        model = FundingRoadmapStep
+        fields = ["id", "order", "timeframe", "title", "description", "model_used", "generated_at"]
+
+
 class ExtractionAttemptPeriodSerializer(serializers.ModelSerializer):
     """Minimal nested period reference for the Governance Center — just
     enough to label a row and drive the period filter dropdown."""
@@ -205,6 +248,72 @@ class ExtractionAttemptSerializer(serializers.ModelSerializer):
         ]
 
 
+class EcosystemChecklistItemSerializer(serializers.ModelSerializer):
+    """
+    key/title/description are fixed benchmark definitions, not
+    admin-authorable — only status/notes are writable (see
+    EcosystemChecklistItemViewSet.get_permissions for who can PATCH).
+    """
+
+    class Meta:
+        model = EcosystemChecklistItem
+        fields = ["id", "key", "order", "title", "description", "status", "notes", "updated_at"]
+        read_only_fields = ["key", "order", "title", "description", "updated_at"]
+
+
+class ReportSpecSerializer(serializers.ModelSerializer):
+    """
+    Mutations to tailored_narrative/narrative_* happen only through
+    ReportSpecViewSet's generate_narrative/approve_narrative actions,
+    not this serializer's PATCH body — same read-only-from-outside
+    rule as AdvisoryGoalSerializer.
+    """
+
+    period_label = serializers.CharField(source="period.label", read_only=True)
+    created_by_username = serializers.SerializerMethodField()
+    narrative_approved_by_username = serializers.SerializerMethodField()
+
+    def get_created_by_username(self, obj):
+        return obj.created_by.username if obj.created_by else None
+
+    def get_narrative_approved_by_username(self, obj):
+        return obj.narrative_approved_by.username if obj.narrative_approved_by else None
+
+    class Meta:
+        model = ReportSpec
+        fields = [
+            "id",
+            "period",
+            "period_label",
+            "title",
+            "audience_label",
+            "context_note",
+            "include_revenue_growth",
+            "include_profitability",
+            "include_cash_liquidity",
+            "include_solvency_leverage",
+            "include_returns",
+            "include_outlook",
+            "use_tailored_narrative",
+            "tailored_narrative",
+            "narrative_generated_at",
+            "narrative_approved",
+            "narrative_approved_by_username",
+            "narrative_approved_at",
+            "created_by_username",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "tailored_narrative",
+            "narrative_generated_at",
+            "narrative_approved",
+            "narrative_approved_at",
+            "created_at",
+            "updated_at",
+        ]
+
+
 class AllowedGoogleEmailSerializer(serializers.ModelSerializer):
     added_by_username = serializers.SerializerMethodField()
 
@@ -238,6 +347,53 @@ class BoardAlertSettingsSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["updated_at"]
+
+
+class DriveSettingsSerializer(serializers.ModelSerializer):
+    """
+    refresh_token is a credential like NotificationSettings.gmail_refresh_token
+    — deliberately not in fields at all, never read back over the API.
+
+    folder_name is a plain writable field, not a live Drive API lookup —
+    the folder picker (DriveFoldersView) already has the name in hand
+    from the listing it's rendering when "Select this folder" is
+    clicked, so it's saved then rather than looked up on every GET
+    (a live external call on every Settings load is slow, and would
+    actually hang if Drive auth is misconfigured).
+    """
+
+    class Meta:
+        model = DriveSettings
+        fields = [
+            "folder_id",
+            "folder_name",
+            "connected_email",
+            "last_sync_status",
+            "last_sync_summary",
+            "last_synced_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "connected_email",
+            "last_sync_status",
+            "last_sync_summary",
+            "last_synced_at",
+            "updated_at",
+        ]
+
+
+class IncubatorSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IncubatorSettings
+        fields = ["search_location", "last_refreshed_at", "last_refresh_error"]
+        read_only_fields = ["last_refreshed_at", "last_refresh_error"]
+
+
+class NearbyIncubatorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NearbyIncubator
+        fields = ["place_id", "name", "address", "website", "rating", "maps_url"]
+        read_only_fields = fields
 
 
 class NotificationSettingsSerializer(serializers.ModelSerializer):
@@ -294,6 +450,8 @@ class PeriodDetailSerializer(serializers.ModelSerializer):
     cash_flow = CashFlowSerializer(read_only=True, allow_null=True)
     business_metrics = BusinessMetricsSerializer(read_only=True, allow_null=True)
     ai_insights = AIInsightSerializer(many=True, read_only=True)
+    advisory_goals = AdvisoryGoalSerializer(many=True, read_only=True)
+    funding_roadmap = FundingRoadmapStepSerializer(many=True, read_only=True, source="funding_roadmap_steps")
     provenance = serializers.ReadOnlyField()
     # Cross-statement metrics (need pl_statement + balance_sheet/cash_flow
     # together, so they live on FinancialPeriod itself rather than any
@@ -301,6 +459,18 @@ class PeriodDetailSerializer(serializers.ModelSerializer):
     yoy_revenue_growth_pct = serializers.ReadOnlyField()
     roce_pct = serializers.ReadOnlyField()
     dscr = serializers.ReadOnlyField()
+    # Evaluated against the admin-configured BoardAlertSettings singleton
+    # (board/alerts.py) rather than stored — thresholds can change at any
+    # time, so this always reflects the current configuration.
+    board_alerts = serializers.SerializerMethodField()
+    funding_readiness = serializers.SerializerMethodField()
+
+    def get_board_alerts(self, obj):
+        return evaluate_board_alerts(obj, BoardAlertSettings.get_solo())
+
+    def get_funding_readiness(self, obj):
+        readiness = compute_readiness_score(obj)
+        return {**readiness, "milestones": compute_funding_milestones(obj)}
 
     class Meta:
         model = FinancialPeriod
@@ -317,8 +487,12 @@ class PeriodDetailSerializer(serializers.ModelSerializer):
             "cash_flow",
             "business_metrics",
             "ai_insights",
+            "advisory_goals",
+            "funding_roadmap",
             "provenance",
             "yoy_revenue_growth_pct",
             "roce_pct",
             "dscr",
+            "board_alerts",
+            "funding_readiness",
         ]

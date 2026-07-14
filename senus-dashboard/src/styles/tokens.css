@@ -170,6 +170,14 @@ button::-moz-focus-inner {
   animation: spin 0.6s linear infinite;
 }
 
+/* Hover tint for the collapsible Priority Task / Long-Term Goal rows in
+   FundingMarathonProgress.tsx — a hover pseudo-class can't be expressed
+   via inline React.CSSProperties objects, same reason .hero-grid and
+   .history-grid live here instead of inline. */
+.disclosure-row:hover {
+  background: var(--color-paper);
+}
+
 .num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
@@ -191,6 +199,49 @@ button::-moz-focus-inner {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   border: 1px solid var(--color-grey-line);
+}
+
+/* Hero metrics grid — always exactly 5 tiles (Revenue, Gross Margin,
+   Operating Loss, Cash Runway, Alerts). auto-fit alone computes column
+   count purely from container width vs. minmax's floor, independent of
+   how many items actually exist — at typical desktop widths that fits
+   4 per row and strands the 5th tile alone on its own row. Locking to
+   a fixed 5-column track once there's room for it removes the orphan
+   entirely; below that width it falls back to auto-fit so tiles still
+   reflow sensibly on narrower screens. This can't be expressed in the
+   inline style object in Dashboard.tsx since inline styles can't use
+   media queries. */
+.hero-grid {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+@media (min-width: 900px) {
+  .hero-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* History tab's bento layout (src/sections/HistorySection.tsx) — a
+   fixed 2-column grid rather than auto-fit/minmax, since the intent is
+   specifically "one wide headline chart, then paired charts below" via
+   .history-grid-full, not a uniform card row. Needs a real media query
+   to collapse to a single column on narrow screens, which the inline
+   style object can't express. */
+.history-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 900px) {
+  .history-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.history-grid-full {
+  grid-column: 1 / -1;
 }
 
 /* Trend badge — the small pill with an up/down arrow and percentage,

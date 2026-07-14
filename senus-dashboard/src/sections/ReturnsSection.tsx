@@ -1,84 +1,31 @@
 // src/sections/ReturnsSection.tsx
 //
-// Sixth and final dashboard section. Unlike the others, BusinessMetrics
-// data is genuinely sparse across periods in the current seed data
-// (market cap only exists from HY2026, the listing period; customer/ACV
-// data only exists for FY2025 from the corporate presentation) — so
-// this section is built to degrade gracefully rather than assume a
-// full trend exists, same empty-state convention as AIInsightsSection.
+// Sixth and final dashboard section, for the CURRENTLY SELECTED
+// period. Unlike the others, BusinessMetrics data is genuinely sparse
+// across periods in the current seed data (market cap only exists from
+// HY2026, the listing period; customer/ACV data only exists for FY2025
+// from the corporate presentation) — so this section is built to
+// degrade gracefully rather than assume every field exists, same
+// empty-state convention as AIInsightsSection.
 //
 // Two panels: "Market" (cap, share price — literal shareholder
 // returns) and "Customers & Unit Economics" (ACV, revenue per
 // customer, concentration — the underlying drivers of future returns).
+//
+// The market capitalisation trend across all periods used to be
+// embedded here too — it moved to the History tab
+// (src/sections/HistorySection.tsx) since it already portrayed the
+// full extracted history rather than this one period's snapshot.
 
-import { useEffect, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ReferenceLine,
-  Tooltip,
-} from "recharts";
-import { boardApi, type PeriodDetail, num, formatEUR, formatPct } from "../api/client";
+import { type PeriodDetail, num, formatEUR, formatPct } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
-import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
-import { Skeleton } from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
-import {
-  chartCard,
-  chartColors,
-  chartMargin,
-  chartCursor,
-  CHART_HEIGHT,
-  formatCompactEURTick,
-  gridProps,
-  selectedDot,
-  tooltipStyle,
-  xAxisProps,
-  yAxisProps,
-} from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail;
 }
 
-interface MarketCapPoint {
-  label: string;
-  marketCap: number;
-}
-
 export function ReturnsSection({ detail }: Props) {
-  const [trend, setTrend] = useState<MarketCapPoint[]>([]);
-  const [trendLoading, setTrendLoading] = useState(true);
-  const selectedLabel = detail.label;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadTrend() {
-      setTrendLoading(true);
-      const periods = await boardApi.listPeriods();
-      const details = await Promise.all(periods.map((p) => boardApi.getPeriod(p.id)));
-      if (cancelled) return;
-
-      const points: MarketCapPoint[] = details
-        .filter((d) => d.business_metrics?.market_cap != null)
-        .map((d) => ({
-          label: d.label,
-          marketCap: num(d.business_metrics!.market_cap),
-        }));
-      setTrend(points);
-      setTrendLoading(false);
-    }
-
-    loadTrend().catch(() => setTrendLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const bm = detail.business_metrics;
   const hasMarketData = bm ? bm.market_cap != null || bm.share_price != null : false;
   const hasCustomerData = bm ? bm.total_customers != null || bm.enterprise_customers != null : false;
@@ -121,59 +68,6 @@ export function ReturnsSection({ detail }: Props) {
             for this period once available.
           </p>
         </EmptyState>
-      )}
-
-      {trend.length >= 2 && (
-        <div style={{ marginBottom: "var(--space-6)" }}>
-          <h2 style={sectionTitle}>Market capitalisation trend</h2>
-          {trendLoading ? (
-            <Skeleton height={CHART_HEIGHT} radius="var(--radius-md)" />
-          ) : (
-            <div className="print-avoid-break" style={chartCard} key={detail.id}>
-              <ResponsiveChartContainer height={CHART_HEIGHT}>
-                <AreaChart data={trend} margin={chartMargin.standard}>
-                  <defs>
-                    <linearGradient id="marketCapFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={chartColors.primaryBright} stopOpacity={0.34} />
-                      <stop offset="58%" stopColor={chartColors.primary} stopOpacity={0.12} />
-                      <stop offset="100%" stopColor={chartColors.primary} stopOpacity={0.02} />
-                    </linearGradient>
-                    <linearGradient id="marketCapStroke" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor={chartColors.primaryDeep} />
-                      <stop offset="100%" stopColor={chartColors.primaryBright} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid {...gridProps} />
-                  <XAxis
-                    dataKey="label"
-                    {...xAxisProps}
-                  />
-                  <YAxis
-                    {...yAxisProps}
-                    tickFormatter={(v) => formatCompactEURTick(Number(v))}
-                  />
-                  <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} cursor={chartCursor} />
-                  <ReferenceLine x={selectedLabel} stroke={chartColors.selectedGuide} strokeWidth={2} />
-                  <Area
-                    type="monotone"
-                    dataKey="marketCap"
-                    name="Market Cap"
-                    stroke="url(#marketCapStroke)"
-                    strokeWidth={3.5}
-                    fill="url(#marketCapFill)"
-                    dot={(props) =>
-                      props.payload.label === selectedLabel ? (
-                        <circle cx={props.cx} cy={props.cy} fill={chartColors.primary} {...selectedDot} />
-                      ) : null
-                    }
-                    activeDot={{ ...selectedDot, fill: chartColors.primary }}
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ResponsiveChartContainer>
-            </div>
-          )}
-        </div>
       )}
 
       {bm && (

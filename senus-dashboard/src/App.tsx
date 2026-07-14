@@ -15,6 +15,9 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./Dashboard";
 import SettingsPage from "./SettingsPage";
+import FundingReadinessPage from "./FundingReadinessPage";
+import ReportBuilderPage from "./ReportBuilderPage";
+import PrintReportPage from "./PrintReportPage";
 import { LoginScreen } from "./LoginScreen";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { getToken, clearToken, getCurrentUser, type CurrentUser } from "./api/client";
@@ -53,6 +56,9 @@ function AppContent() {
     <BrowserRouter>
       <Routes>
         <Route path="/settings" element={<SettingsPage currentUser={currentUser} onSignOut={handleSignOut} />} />
+        <Route path="/readiness" element={<FundingReadinessPage currentUser={currentUser} onSignOut={handleSignOut} />} />
+        <Route path="/report-builder" element={<ReportBuilderPage currentUser={currentUser} onSignOut={handleSignOut} />} />
+        <Route path="/print/report/:specId" element={<PrintReportPage />} />
         <Route path="/*" element={<Dashboard currentUser={currentUser} onSignOut={handleSignOut} />} />
       </Routes>
     </BrowserRouter>

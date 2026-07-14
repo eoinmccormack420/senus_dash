@@ -1,85 +1,28 @@
 // src/sections/SolvencyLeverageSection.tsx
 //
-// Fourth dashboard section. Two visualizations:
-//   1. Net assets trend across periods (bar, rust/forest split like
-//      the EBITDA bars) — is the balance sheet strengthening or
-//      eroding period to period.
-//   2. A balance sheet composition view for the current period: what
-//      assets are made of, and what's financing them (liabilities vs
-//      equity) — the classic "two sides of the balance sheet" story,
-//      shown as two stacked horizontal bars rather than a table, so
-//      the relative weight of goodwill/contingent consideration is
-//      visible at a glance (relevant given Loamin's impact on HY2026).
+// Fourth dashboard section, for the CURRENTLY SELECTED period: a
+// balance sheet composition view — what assets are made of, and what's
+// financing them (liabilities vs equity) — the classic "two sides of
+// the balance sheet" story, shown as two stacked horizontal bars rather
+// than a table, so the relative weight of goodwill/contingent
+// consideration is visible at a glance (relevant given Loamin's impact
+// on HY2026).
+//
+// The net assets trend across all periods used to be embedded here too
+// — it moved to the History tab (src/sections/HistorySection.tsx)
+// since it already portrayed the full extracted history rather than
+// this one period's snapshot.
 
-import { useEffect, useState } from "react";
-import {
-  BarChart,
-  Bar,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
-} from "recharts";
-import { boardApi, type PeriodDetail, num, formatEUR } from "../api/client";
+import { type PeriodDetail, num, formatEUR } from "../api/client";
 import { AIInsightCard } from "../components/AIInsightCard";
-import { ResponsiveChartContainer } from "../components/ResponsiveChartContainer";
-import { Skeleton } from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
-import {
-  barRadius,
-  chartCard,
-  chartColors,
-  chartMargin,
-  chartCursor,
-  CHART_HEIGHT,
-  formatCompactEURTick,
-  gridProps,
-  tooltipStyle,
-  xAxisProps,
-  yAxisProps,
-} from "../styles/chartTheme";
+import { chartCard, chartColors } from "../styles/chartTheme";
 
 interface Props {
   detail: PeriodDetail;
 }
 
-interface NetAssetsPoint {
-  label: string;
-  netAssets: number;
-}
-
 export function SolvencyLeverageSection({ detail }: Props) {
-  const [trend, setTrend] = useState<NetAssetsPoint[]>([]);
-  const [trendLoading, setTrendLoading] = useState(true);
-  const selectedLabel = detail.label;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadTrend() {
-      setTrendLoading(true);
-      const periods = await boardApi.listPeriods();
-      const details = await Promise.all(periods.map((p) => boardApi.getPeriod(p.id)));
-      if (cancelled) return;
-
-      const points: NetAssetsPoint[] = details
-        .filter((d) => d.balance_sheet !== null)
-        .map((d) => ({
-          label: d.label,
-          netAssets: d.balance_sheet!.net_assets,
-        }));
-      setTrend(points);
-      setTrendLoading(false);
-    }
-
-    loadTrend().catch(() => setTrendLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const bs = detail.balance_sheet;
 
   if (!bs) {
@@ -106,63 +49,6 @@ export function SolvencyLeverageSection({ detail }: Props) {
   return (
     <div>
       <AIInsightCard insight={detail.ai_insights.find((i) => i.section === "solvency_leverage")} />
-      <div style={{ marginBottom: "var(--space-6)" }}>
-        <h2 style={sectionTitle}>Net assets trend</h2>
-        {trendLoading ? (
-          <Skeleton height={CHART_HEIGHT} radius="var(--radius-md)" />
-        ) : trend.length < 2 ? (
-          <div style={{ ...chartCard, padding: "var(--space-4)", color: "var(--color-grey-text)", fontSize: "var(--text-sm)" }}>
-            Not enough historical data yet to show a trend.
-          </div>
-        ) : (
-          <div className="print-avoid-break" style={chartCard} key={detail.id}>
-            <ResponsiveChartContainer height={CHART_HEIGHT}>
-              <BarChart data={trend} margin={chartMargin.standard}>
-                <defs>
-                  <linearGradient id="netAssetsPositiveFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={chartColors.primaryBright} />
-                    <stop offset="100%" stopColor={chartColors.primaryDeep} />
-                  </linearGradient>
-                  <linearGradient id="netAssetsNegativeFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={chartColors.negativeBright} />
-                    <stop offset="100%" stopColor={chartColors.negative} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid {...gridProps} />
-                <XAxis
-                  dataKey="label"
-                  {...xAxisProps}
-                />
-                <YAxis
-                  {...yAxisProps}
-                  tickFormatter={(v) => formatCompactEURTick(Number(v))}
-                />
-                <Tooltip formatter={(value) => formatEUR(Number(value))} contentStyle={tooltipStyle} cursor={chartCursor} />
-                <ReferenceLine x={selectedLabel} stroke={chartColors.selectedGuide} strokeWidth={2} />
-                <ReferenceLine y={0} stroke={chartColors.gridLine} strokeWidth={1.5} />
-                <Bar
-                  dataKey="netAssets"
-                  name="Net Assets"
-                  radius={barRadius.vertical}
-                  barSize={44}
-                  background={{ fill: "rgba(52, 87, 232, 0.045)", radius: 12 }}
-                  isAnimationActive={false}
-                >
-                  {trend.map((p, i) => (
-                    <Cell
-                      key={i}
-                      fill={p.netAssets < 0 ? "url(#netAssetsNegativeFill)" : "url(#netAssetsPositiveFill)"}
-                      fillOpacity={p.label === selectedLabel ? 1 : 0.72}
-                      stroke={p.label === selectedLabel ? "rgba(255,255,255,0.82)" : "transparent"}
-                      strokeWidth={p.label === selectedLabel ? 1.5 : 0}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveChartContainer>
-          </div>
-        )}
-      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "var(--space-5)" }}>
         <div>
