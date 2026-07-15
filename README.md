@@ -179,3 +179,214 @@ For local development, `SECRET_KEY` falls back to a hardcoded dev value and the 
 - Extend the OCR/vision fallback (see §3.4) with a genuine hybrid mode — use pdfplumber's text where a page has it and only fall back to vision per-page, rather than per-document, for mixed scanned/digital PDFs
 - Trigger `sync_drive_documents` automatically on new file upload (Drive push notifications / a scheduled poll) instead of a manual CLI run
 - A natural-language query interface over the board data (Gemini function-calling against the DRF API) — a genuine "ask the board report a question" feature
+
+
+## 10 ER Diagram
+
+```mermaid
+erDiagram
+    %% ============ CENTRAL HUB ============
+    FinancialPeriod {
+        bigint id PK
+        char label
+        char period_type
+        date start_date
+        date end_date
+        boolean is_audited
+        text notes
+    }
+
+    User {
+        bigint id PK
+    }
+
+    %% ============ FINANCIAL STATEMENTS ============
+    BalanceSheet {
+        bigint id PK
+        decimal cash
+        decimal tangible_assets
+        decimal goodwill
+        decimal debtors
+        decimal current_creditors
+        decimal long_term_debt
+        decimal loans_net
+        decimal share_capital
+        decimal share_premium
+        decimal retained_earnings
+        decimal equity_raised
+        decimal development_costs
+        decimal contingent_consideration
+    }
+
+    PLStatement {
+        bigint id PK
+        decimal revenue
+        decimal cost_of_sales
+        decimal gross_profit
+        decimal admin_expenses
+        decimal distribution_costs
+        decimal operating_loss
+        decimal other_operating_income
+        decimal interest_expense
+        decimal loss_before_tax
+        decimal tax_expense
+        decimal loss_after_tax
+    }
+
+    CashFlow {
+        bigint id PK
+        decimal opening_cash
+        decimal closing_cash
+        decimal net_operating_cash
+        decimal net_investing_cash
+        decimal net_financing_cash
+        decimal net_cash_movement
+        decimal working_capital_movement
+        decimal depreciation
+        decimal equity_raised
+    }
+
+    BusinessMetrics {
+        bigint id PK
+        int employees
+        int total_customers
+        int enterprise_customers
+        decimal revenue_ireland_pct
+        decimal acv_era_per_enterprise
+        decimal acv_soil_per_enterprise
+        decimal market_cap
+        decimal share_price
+        decimal pipeline_value
+        int pipeline_deals_count
+    }
+
+    %% ============ AI / EXTRACTION PIPELINE ============
+    ExtractionAttempt {
+        bigint id PK
+        char statement_kind
+        char source_document
+        char source_content_hash
+        char model_used
+        json raw_response
+        json cross_check_results
+        decimal match_rate_pct
+        char status
+        boolean verified
+        text error_message
+    }
+
+    AIInsight {
+        bigint id PK
+        char section
+        text generated_text
+        char model_used
+        char source_data_hash
+        datetime generated_at
+    }
+
+    AdvisoryGoal {
+        bigint id PK
+        char title
+        text description
+        text rationale
+        smallint order
+        char status
+        char model_used
+        datetime committed_at
+    }
+
+    ReportSpec {
+        bigint id PK
+        char title
+        char audience_label
+        text context_note
+        boolean include_cash_liquidity
+        boolean include_profitability
+        boolean include_revenue_growth
+        boolean include_solvency_leverage
+        boolean include_returns
+        boolean include_outlook
+        boolean use_tailored_narrative
+        json tailored_narrative
+        boolean narrative_approved
+    }
+
+    BoardQuestion {
+        bigint id PK
+        text question
+        text answer
+        json context_chunks
+        json figures_snapshot
+        json graph_triples
+        char model_used
+    }
+
+    %% ============ RAG / KNOWLEDGE GRAPH ============
+    VectorDocumentChunk {
+        bigint id PK
+        char source_document
+        char statement_kind
+        int page_number
+        int chunk_index
+        text text
+        vector embedding
+        char embedding_model
+    }
+
+    KnowledgeGraphNode {
+        bigint id PK
+        char name
+        char node_type
+        text description
+        json metadata
+    }
+
+    KnowledgeGraphEdge {
+        bigint id PK
+        char edge_type
+        json metadata
+    }
+
+    %% ============ STANDALONE ============
+    FundingRoadmapStep {
+        bigint id PK
+        char title
+        text description
+        char timeframe
+        smallint order
+        char model_used
+    }
+
+    EcosystemChecklistItem {
+        bigint id PK
+        char title
+        slug key
+        text description
+        text notes
+        smallint order
+        char status
+    }
+
+    %% ============ RELATIONSHIPS ============
+    FinancialPeriod ||--o{ BalanceSheet : "balance_sheet"
+    FinancialPeriod ||--o{ PLStatement : "pl_statement"
+    FinancialPeriod ||--o{ CashFlow : "cash_flow"
+    FinancialPeriod ||--o{ BusinessMetrics : "business_metrics"
+    FinancialPeriod ||--o{ ExtractionAttempt : "extraction_attempts"
+    FinancialPeriod ||--o{ AIInsight : "ai_insights"
+    FinancialPeriod ||--o{ AdvisoryGoal : "advisory_goals"
+    FinancialPeriod ||--o{ ReportSpec : "report_specs"
+    FinancialPeriod ||--o{ BoardQuestion : "board_questions"
+    FinancialPeriod ||--o{ VectorDocumentChunk : "document_chunks"
+    FinancialPeriod ||--o{ FundingRoadmapStep : "funding_roadmap_steps"
+
+    VectorDocumentChunk ||--o{ KnowledgeGraphNode : "graph_nodes"
+    KnowledgeGraphNode ||--o{ KnowledgeGraphEdge : "outgoing_edges (source)"
+    KnowledgeGraphNode ||--o{ KnowledgeGraphEdge : "incoming_edges (target)"
+
+    User ||--o{ AdvisoryGoal : "committed_by"
+    User ||--o{ ReportSpec : "created_by"
+    User ||--o{ ReportSpec : "narrative_approved_by"
+    User ||--o{ BoardQuestion : "asked_by"
+    User ||--o{ EcosystemChecklistItem : "updated_by"
+```
