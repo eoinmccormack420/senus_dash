@@ -61,8 +61,11 @@ export default function Dashboard({
   // single selected period, so it renders HistorySection instead of the
   // usual hero metrics + section nav + per-period sections.
   const [activeView, setActiveView] = useState<"period" | "history">("period");
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Derived rather than a separate piece of state set at the top of the
+  // fetch effect: `detail` lags `selectedId` while a fetch for the newly
+  // selected period is in flight.
+  const loading = selectedId !== null && detail?.id !== selectedId;
   // Distinct from `error` — specifically "the initial periods fetch
   // never got a response at all", which gets a plain-language message
   // instead of a raw error string (which is often just "Failed to
@@ -95,7 +98,6 @@ export default function Dashboard({
   useEffect(() => {
     if (selectedId === null) return;
     let cancelled = false;
-    setLoading(true);
     boardApi
       .getPeriod(selectedId)
       .then((d) => {
@@ -108,10 +110,6 @@ export default function Dashboard({
       .catch((err) => {
         if (cancelled) return;
         setError(err.message);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
       });
     return () => {
       cancelled = true;

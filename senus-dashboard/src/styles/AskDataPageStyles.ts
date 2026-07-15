@@ -258,6 +258,15 @@ export const answerHeading: CSSProperties = {
   margin: "var(--space-2) 0 0 0",
 };
 
+export const answerSubheading: CSSProperties = {
+  fontFamily: "var(--font-body)",
+  fontSize: "13px",
+  fontWeight: 700,
+  lineHeight: 1.4,
+  color: "var(--color-forest)",
+  margin: "var(--space-1) 0 0 0",
+};
+
 export const answerParagraph: CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: "var(--text-sm)",

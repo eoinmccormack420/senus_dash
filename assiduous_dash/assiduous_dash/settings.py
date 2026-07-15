@@ -169,7 +169,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 DEBUG = os.environ.get("DEBUG", "False") == "True"
- 
+
+if DEBUG:
+    # graph_models management command (schema diagram generation) — dev-only tooling.
+    INSTALLED_APPS.append("django_extensions")
+
 SECRET_KEY = os.environ.get("SECRET_KEY", SECRET_KEY)  # keep your existing dev fallback
  
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")

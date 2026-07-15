@@ -20,7 +20,7 @@ import {
 import { AccountMenu } from "./components/AccountMenu";
 import { ChatIcon, SparkleIcon } from "./components/icons";
 import "./styles/tokens.css";
-import { page, header, eyebrow, titleRow, heroIconBadge, title, backLink, subheading, askCard, questionInput, askControls, periodSelect, askButton, buttonSpinner, errorText, sectionHeading, answerCard, answerHeader, answerHeaderText, answerQuestion, answerMeta, chevron, collapseWrapper, collapseInner, answerBadgeRow, aiBadge, answerBody, answerBodyHeader, answerBodyLabel, answerText, answerHeading, answerParagraph, answerBullet, answerBulletMarker, sourcesList, sourcePill } from "./styles/AskDataPageStyles";
+import { page, header, eyebrow, titleRow, heroIconBadge, title, backLink, subheading, askCard, questionInput, askControls, periodSelect, askButton, buttonSpinner, errorText, sectionHeading, answerCard, answerHeader, answerHeaderText, answerQuestion, answerMeta, chevron, collapseWrapper, collapseInner, answerBadgeRow, aiBadge, answerBody, answerBodyHeader, answerBodyLabel, answerText, answerHeading, answerSubheading, answerParagraph, answerBullet, answerBulletMarker, sourcesList, sourcePill } from "./styles/AskDataPageStyles";
 
 export default function AskDataPage({
   currentUser,
@@ -147,15 +147,14 @@ export default function AskDataPage({
 }
 
 function stripMarkdown(text: string) {
+  // "# " / "## " heading markers are left intact here — renderAnswerText
+  // parses those itself to distinguish heading/subheading/paragraph.
   return text
-    .replace(/!\[([^\]]*)\]\([^\)]+\)/g, "$1")
-    .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1")
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/\[(Source|source|Sources|sources)(?:\s+[A-Za-z0-9.\-_/]+)?\]/gi, "")
     .replace(/\[[A-Za-z0-9_.\-/]+(?:\s*,\s*[A-Za-z0-9_.\-/]+)*\]/g, "")
     .replace(/\[(?:yoy|cashliquidity|boardnotes|source|sources)[^\]]*\]/gi, "")
-    .replace(/^[\t ]{0,3}(#{1,6})\s+/gm, "")
-    .replace(/^\s*[-*+]\s+/gm, "• ")
-    .replace(/^\s*\d+\.\s+/gm, "• ")
     .replace(/^>\s?/gm, "")
     .replace(/[*_~`]+/g, "")
     .replace(/\n{3,}/g, "\n\n")
@@ -176,22 +175,30 @@ function renderAnswerText(text: string) {
       return;
     }
 
+    if (/^##\s+/.test(line)) {
+      nodes.push(
+        <h4 key={`subheading-${index}`} style={answerSubheading}>
+          {line.replace(/^##\s+/, "")}
+        </h4>,
+      );
+      return;
+    }
+
+    if (/^#\s+/.test(line)) {
+      nodes.push(
+        <h3 key={`heading-${index}`} style={answerHeading}>
+          {line.replace(/^#\s+/, "")}
+        </h3>,
+      );
+      return;
+    }
+
     if (/^\s*(•|[-*])\s+/.test(line)) {
       nodes.push(
         <p key={`bullet-${index}`} style={answerBullet}>
           <span style={answerBulletMarker}>•</span>
           <span>{line.replace(/^\s*(•|[-*])\s+/, "")}</span>
         </p>,
-      );
-      return;
-    }
-
-    const isHeading = /:$/.test(line) && line.length < 90 && !line.startsWith("http") && !line.includes("[");
-    if (isHeading) {
-      nodes.push(
-        <h3 key={`heading-${index}`} style={answerHeading}>
-          {line.replace(/:$/, "")}
-        </h3>,
       );
       return;
     }
