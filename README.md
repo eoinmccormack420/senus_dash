@@ -178,7 +178,6 @@ For local development, `SECRET_KEY` falls back to a hardcoded dev value and the 
 
 - Extend the OCR/vision fallback (see §3.4) with a genuine hybrid mode — use pdfplumber's text where a page has it and only fall back to vision per-page, rather than per-document, for mixed scanned/digital PDFs
 - Trigger `sync_drive_documents` automatically on new file upload (Drive push notifications / a scheduled poll) instead of a manual CLI run
-- A natural-language query interface over the board data (Gemini function-calling against the DRF API) — a genuine "ask the board report a question" feature
 
 
 ## 10 ER Diagram
