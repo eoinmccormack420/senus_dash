@@ -3,7 +3,6 @@
 A full-stack board reporting platform for Senus PLC, built for the Assiduous Technology Graduate technical assessment. Financial data enters the system via AI extraction from source PDFs, is validated in code before it's trusted, and powers a dashboard a CEO or board member would actually use — not just a demo of an AI call.
 
 **Live app:** https://senusdash-production.up.railway.app
-**Login:** credentials on request
 
 ---
 
